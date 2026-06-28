@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    image: ${DOCKER_IMAGE:-yonetim-app:latest}
+    restart: unless-stopped
+    ports:
+      # Map host port 3050 to container port 3000
+      # Change 3050 if you want a different port on the VPS
+      - "3050:3000"
+    environment:
+      # These will be loaded from the .env file in the same directory on the VPS
+      - NODE_ENV=production
+    env_file:
+      - .env
