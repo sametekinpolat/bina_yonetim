@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   Circle,
-  Printer,
+  FileText,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -124,14 +124,14 @@ export default async function GuestPeriodPage({
             <ChevronLeft className="h-4 w-4" />
             Aylık Ödeme Kayıtları
           </Link>
-          <Link
-            href={`/print/period/${id}`}
-            target="_blank"
+          <a
+            href={`/api/reports/period/${id}/pdf`}
+            download
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Yazdır
-          </Link>
+            <FileText className="mr-1.5 h-3.5 w-3.5" />
+            PDF İndir
+          </a>
         </div>
 
         {/* Page title */}

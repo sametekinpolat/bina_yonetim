@@ -79,7 +79,11 @@ export function PeriodDialog({ open, onOpenChange }: PeriodDialogProps) {
             <div className="flex flex-col gap-1.5">
               <Label>Ay</Label>
               <Select value={month} onValueChange={(v) => { if (v !== null) setMonth(v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {(val: string) => MONTHS[parseInt(val) - 1] || val}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {MONTHS.map((name, i) => (
                     <SelectItem key={i + 1} value={String(i + 1)}>
@@ -92,7 +96,11 @@ export function PeriodDialog({ open, onOpenChange }: PeriodDialogProps) {
             <div className="flex flex-col gap-1.5">
               <Label>Yıl</Label>
               <Select value={year} onValueChange={(v) => { if (v !== null) setYear(v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {(val: string) => val}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {YEARS.map((y) => (
                     <SelectItem key={y} value={String(y)}>{y}</SelectItem>

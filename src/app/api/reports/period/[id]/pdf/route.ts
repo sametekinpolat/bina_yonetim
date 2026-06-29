@@ -77,9 +77,6 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   const periodId = parseInt(id);
   if (isNaN(periodId)) return NextResponse.json({ error: "Bad request" }, { status: 400 });
@@ -92,6 +89,11 @@ export async function GET(
     .limit(1);
 
   if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
+
+  const session = await auth();
+  if (!session && period.status === "Taslak") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const [expenses, invoiceRows] = await Promise.all([
     db
@@ -289,11 +291,23 @@ export async function GET(
   doc.end();
   const pdfBuffer = await done;
 
-  const slug = period.periodName.toLowerCase().replace(/\s+/g, "-");
+  const slug = period.periodName
+    .replace(/Ğ/g, "G").replace(/ğ/g, "g")
+    .replace(/Ü/g, "U").replace(/ü/g, "u")
+    .replace(/Ş/g, "S").replace(/ş/g, "s")
+    .replace(/İ/g, "I").replace(/ı/g, "i")
+    .replace(/Ö/g, "O").replace(/ö/g, "o")
+    .replace(/Ç/g, "C").replace(/ç/g, "c")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const encodedName = encodeURIComponent(`aidat-${period.periodName}.pdf`);
+
   return new NextResponse(pdfBuffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="aidat-${slug}.pdf"`,
+      "Content-Disposition": `attachment; filename="aidat-${slug}.pdf"; filename*=UTF-8''${encodedName}`,
     },
   });
 }
