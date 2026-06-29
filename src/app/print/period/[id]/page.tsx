@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/print-button";
+
+export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import {
   billingPeriods, monthlyInvoices, flats, flatRelationships, people,

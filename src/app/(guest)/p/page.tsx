@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 import { billingPeriods } from "@/lib/db/schema";
 import { desc, inArray } from "drizzle-orm";
 import { ChevronRight } from "lucide-react";
