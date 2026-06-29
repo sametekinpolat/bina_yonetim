@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import {
   flats, monthlyInvoices, billingPeriods, flatRelationships, people,
 } from "@/lib/db/schema";
-import { eq, desc, isNull, and } from "drizzle-orm";
+import { eq, desc, isNull, and, ne } from "drizzle-orm";
 import Decimal from "decimal.js";
 import { ChevronLeft, Calendar } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -48,7 +48,10 @@ export default async function FlatDebtDetailPage({
       })
       .from(monthlyInvoices)
       .innerJoin(billingPeriods, eq(billingPeriods.id, monthlyInvoices.periodId))
-      .where(eq(monthlyInvoices.flatId, flatId))
+      .where(and(
+        eq(monthlyInvoices.flatId, flatId),
+        ne(billingPeriods.status, "Taslak")
+      ))
       .orderBy(desc(billingPeriods.periodYear), desc(billingPeriods.periodMonth)),
 
     db

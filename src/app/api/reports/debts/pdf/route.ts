@@ -3,7 +3,7 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { flats, monthlyInvoices, flatRelationships, people } from "@/lib/db/schema";
+import { flats, monthlyInvoices, flatRelationships, people, billingPeriods } from "@/lib/db/schema";
 import { eq, sql, isNull } from "drizzle-orm";
 import Decimal from "decimal.js";
 import PDFDocument from "pdfkit";
@@ -69,11 +69,12 @@ export async function GET(_req: NextRequest) {
       .select({
         flatId: flats.id,
         flatNumber: flats.flatNumber,
-        totalDue: sql<string>`COALESCE(SUM(${monthlyInvoices.totalDue}::numeric), 0)`.as("total_due"),
-        totalPaid: sql<string>`COALESCE(SUM(${monthlyInvoices.amountPaid}::numeric), 0)`.as("total_paid"),
+        totalDue: sql<string>`COALESCE(SUM(CASE WHEN ${billingPeriods.status} != 'Taslak' THEN ${monthlyInvoices.totalDue}::numeric ELSE 0 END), 0)`.as("total_due"),
+        totalPaid: sql<string>`COALESCE(SUM(CASE WHEN ${billingPeriods.status} != 'Taslak' THEN ${monthlyInvoices.amountPaid}::numeric ELSE 0 END), 0)`.as("total_paid"),
       })
       .from(flats)
       .leftJoin(monthlyInvoices, eq(monthlyInvoices.flatId, flats.id))
+      .leftJoin(billingPeriods, eq(billingPeriods.id, monthlyInvoices.periodId))
       .groupBy(flats.id, flats.flatNumber)
       .orderBy(flats.flatNumber),
 
