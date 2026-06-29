@@ -310,7 +310,11 @@ export function StagingTable({
         <div className="flex items-center gap-2">
           <Label className="text-xs">Hesap:</Label>
           <Select value={accountId} onValueChange={(v) => { if (v) setAccountId(v); }}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Hesap seç…" /></SelectTrigger>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Hesap seç…">
+                {(val: string) => accounts.find(a => a.id.toString() === val)?.accountName || val}
+              </SelectValue>
+            </SelectTrigger>
             <SelectContent>
               {accounts.map((a) => (
                 <SelectItem key={a.id} value={a.id.toString()}>{a.accountName}</SelectItem>
@@ -417,7 +421,11 @@ export function StagingTable({
                   value={selectedInvoiceId}
                   onValueChange={(v) => { if (v) setSelectedInvoiceId(v); }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Fatura seçin…" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Fatura seçin…">
+                      {(val: string) => debts.find(d => d.id.toString() === val)?.label || val}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent className="w-[400px]">
                     {invoices.map((inv) => (
                       <SelectItem key={inv.id} value={inv.id.toString()}>{inv.label}</SelectItem>
@@ -458,7 +466,11 @@ export function StagingTable({
                   value={selectedVendorId}
                   onValueChange={(v) => { if (v) setSelectedVendorId(v); }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Firma seçin…" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Firma seçin…">
+                      {(val: string) => vendors.find(v => v.id.toString() === val)?.label || val}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent className="w-[450px]">
                     {vendors.map((v) => (
                       <SelectItem key={v.id} value={v.id.toString()}>{v.label}</SelectItem>
@@ -504,7 +516,11 @@ export function StagingTable({
                 <div className="flex flex-col gap-1.5">
                   <Label>Ek Ücret Türü</Label>
                   <Select value={surchargeType} onValueChange={(v) => setSurchargeType(v ?? "")}>
-                    <SelectTrigger><SelectValue placeholder="Tür seçin…" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tür seçin…">
+                        {(val: string) => SURCHARGE_LABELS[val as keyof typeof SURCHARGE_LABELS] || val}
+                      </SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       {SURCHARGE_TYPES.map((t) => (
                         <SelectItem key={t} value={t}>{SURCHARGE_LABELS[t]}</SelectItem>
@@ -586,7 +602,11 @@ export function StagingTable({
               <div className="flex flex-col gap-1.5">
                 <Label>İşlem Yönü</Label>
                 <Select value={directDirection} onValueChange={(v) => { if (v === "Gelir" || v === "Gider") setDirectDirection(v); }}>
-                  <SelectTrigger><SelectValue placeholder="Yön seçin…" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Yön seçin…">
+                      {(val: string) => val}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Gelir">Gelir</SelectItem>
                     <SelectItem value="Gider">Gider</SelectItem>

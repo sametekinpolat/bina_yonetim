@@ -51,7 +51,11 @@ export function AccountDialog({
           <div className="flex flex-col gap-1.5">
             <Label>Tür</Label>
             <Select value={accountType} onValueChange={(v) => { if (v) setAccountType(v); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue>
+                  {(val: string) => val}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Banka">Banka</SelectItem>
                 <SelectItem value="Kasa">Kasa</SelectItem>

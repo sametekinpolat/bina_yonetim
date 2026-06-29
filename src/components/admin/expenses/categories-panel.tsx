@@ -118,7 +118,11 @@ function PresetDialog({
           <div className="flex flex-col gap-1.5">
             <Label>Kategori</Label>
             <Select value={categoryId} onValueChange={(v) => { if (v !== null) setCategoryId(v); }}>
-              <SelectTrigger><SelectValue placeholder="Seçiniz…" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Seçiniz…">
+                  {(val: string) => categories.find(c => c.id.toString() === val)?.name || val}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>

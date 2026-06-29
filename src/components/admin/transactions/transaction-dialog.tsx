@@ -56,7 +56,14 @@ export function TransactionDialog({
           <div className="flex flex-col gap-1.5">
             <Label>Hesap</Label>
             <Select value={accountId} onValueChange={(v) => { if (v) setAccountId(v); }}>
-              <SelectTrigger><SelectValue placeholder="Hesap seç…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Hesap seç…">
+                    {(val: string) => {
+                      const acc = accounts.find(a => a.id.toString() === val);
+                      return acc ? `${acc.accountName} (${acc.accountType})` : val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
               <SelectContent>
                 {accounts.map((a) => (
                   <SelectItem key={a.id} value={a.id.toString()}>
@@ -71,7 +78,11 @@ export function TransactionDialog({
             <div className="flex flex-col gap-1.5">
               <Label>Tür</Label>
               <Select value={txType} onValueChange={(v) => { if (v) setTxType(v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {(val: string) => val}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Gelir">Gelir</SelectItem>
                   <SelectItem value="Gider">Gider</SelectItem>
@@ -105,7 +116,14 @@ export function TransactionDialog({
             <div className="flex flex-col gap-1.5">
               <Label>Fatura ile ilişkilendir (isteğe bağlı)</Label>
               <Select value={invoiceId} onValueChange={(v) => { if (v) setInvoiceId(v === "_none" ? "" : v); }}>
-                <SelectTrigger><SelectValue placeholder="Fatura seç…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Fatura seç…">
+                    {(val: string) => {
+                      if (val === "_none") return "— yok —";
+                      return invoices.find(i => i.id.toString() === val)?.label || val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent className="w-[400px]">
                   <SelectItem value="_none">— yok —</SelectItem>
                   {invoices.map((inv) => (

@@ -235,7 +235,13 @@ export function PeriodExpensesSection({
                   >
                     <SelectTrigger className="w-40 h-8 text-xs">
                       <Building2 className="h-3 w-3 mr-1 opacity-50 shrink-0" />
-                      <SelectValue placeholder="Firma seç…" />
+                      <SelectValue placeholder="Firma seç…">
+                        {(val: string) =>
+                          val === NO_VENDOR
+                            ? "— Firma yok —"
+                            : vendors.find((v) => v.id.toString() === val)?.name || val
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>
@@ -318,7 +324,13 @@ export function PeriodExpensesSection({
             <Select value={newVendorId} onValueChange={(v) => setNewVendorId(v ?? NO_VENDOR)}>
               <SelectTrigger className="w-40 h-8 text-xs">
                 <Building2 className="h-3 w-3 mr-1 opacity-50 shrink-0" />
-                <SelectValue placeholder="Firma seç…" />
+                <SelectValue placeholder="Firma seç…">
+                  {(val: string) =>
+                    val === NO_VENDOR
+                      ? "— Firma yok —"
+                      : vendors.find((v) => v.id.toString() === val)?.name || val
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>

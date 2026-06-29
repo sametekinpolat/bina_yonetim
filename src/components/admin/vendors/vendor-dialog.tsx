@@ -68,7 +68,12 @@ export function VendorDialog({ open, onOpenChange, vendor }: VendorDialogProps) 
             <Label>Tür</Label>
             <Select value={vendorType} onValueChange={(v) => { if (v !== null) setVendorType(v); }}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>
+                  {(val: string) => {
+                    const map: Record<string, string> = { "Şirket": "Şirket", "Personel": "Personel", "Kamu": "Kamu Kurumu" };
+                    return map[val] || val;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Şirket">Şirket</SelectItem>

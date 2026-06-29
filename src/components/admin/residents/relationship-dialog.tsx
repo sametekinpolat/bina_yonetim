@@ -80,7 +80,12 @@ export function RelationshipDialog({
             <Label>Daire</Label>
             <Select value={flatId} onValueChange={(v) => { if (v !== null) setFlatId(v); }} required>
               <SelectTrigger>
-                <SelectValue placeholder="Daire seç…" />
+                <SelectValue placeholder="Daire seç…">
+                  {(val: string) => {
+                    const f = flats.find(fl => fl.id.toString() === val);
+                    return f ? `Daire ${f.flatNumber}` : val;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {flats.map((f) => (
@@ -96,7 +101,9 @@ export function RelationshipDialog({
             <Label>Rol</Label>
             <Select value={role} onValueChange={(v) => { if (v !== null) setRole(v); }}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>
+                  {(val: string) => val}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Ev Sahibi">Ev Sahibi</SelectItem>
