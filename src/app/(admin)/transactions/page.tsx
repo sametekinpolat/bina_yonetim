@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import {
-  transactions, accounts, monthlyInvoices, billingPeriods, flats,
+  transactions, accounts, monthlyInvoices, billingPeriods, flats, vendors,
 } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { TransactionsTable } from "@/components/admin/transactions/transactions-table";
 
 
@@ -30,6 +30,11 @@ export default async function TransactionsPage() {
     .from(accounts)
     .orderBy(accounts.accountName);
 
+  const allVendors = await db
+    .select({ id: vendors.id, name: vendors.name })
+    .from(vendors)
+    .orderBy(vendors.name);
+
   // Invoice options for the "link to invoice" select — unpaid/partial invoices
   const invoiceOptions = await db
     .select({
@@ -41,6 +46,7 @@ export default async function TransactionsPage() {
     .from(monthlyInvoices)
     .innerJoin(billingPeriods, eq(billingPeriods.id, monthlyInvoices.periodId))
     .innerJoin(flats, eq(flats.id, monthlyInvoices.flatId))
+    .where(inArray(monthlyInvoices.status, ["Ödenmedi", "Kısmi"]))
     .orderBy(desc(billingPeriods.periodYear), desc(billingPeriods.periodMonth), flats.flatNumber);
 
   const rows = txRows.map((tx) => ({
@@ -70,6 +76,7 @@ export default async function TransactionsPage() {
         transactions={rows}
         accounts={allAccounts}
         invoices={invoices}
+        vendors={allVendors}
       />
     </div>
   );

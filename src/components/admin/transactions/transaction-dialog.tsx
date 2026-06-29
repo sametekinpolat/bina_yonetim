@@ -18,18 +18,20 @@ type InvoiceOption = { id: number; label: string };
 
 
 export function TransactionDialog({
-  open, onOpenChange, accounts, invoices,
+  open, onOpenChange, accounts, invoices, vendors,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   accounts: AccountOption[];
   invoices: InvoiceOption[];
+  vendors: { id: number; name: string }[];
 }) {
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [accountId, setAccountId] = useState(accounts[0]?.id.toString() ?? "");
   const [txType, setTxType] = useState("Gelir");
   const [invoiceId, setInvoiceId] = useState("");
+  const [vendorId, setVendorId] = useState("");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,7 +39,8 @@ export function TransactionDialog({
     const fd = new FormData(e.currentTarget);
     fd.set("accountId", accountId);
     fd.set("transactionType", txType);
-    if (invoiceId) fd.set("relatedInvoiceId", invoiceId);
+    if (txType === "Gelir" && invoiceId) fd.set("relatedInvoiceId", invoiceId);
+    if (txType === "Gider" && vendorId) fd.set("vendorId", vendorId);
 
     startTransition(async () => {
       const r = await createTransaction(fd);
@@ -128,6 +131,28 @@ export function TransactionDialog({
                   <SelectItem value="_none">— yok —</SelectItem>
                   {invoices.map((inv) => (
                     <SelectItem key={inv.id} value={inv.id.toString()}>{inv.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {txType === "Gider" && vendors.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Firma seç (isteğe bağlı)</Label>
+              <Select value={vendorId} onValueChange={(v) => { if (v) setVendorId(v === "_none" ? "" : v); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Firma seç…">
+                    {(val: string) => {
+                      if (val === "_none") return "— yok —";
+                      return vendors.find(v => v.id.toString() === val)?.name || val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="w-[400px]">
+                  <SelectItem value="_none">— yok —</SelectItem>
+                  {vendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

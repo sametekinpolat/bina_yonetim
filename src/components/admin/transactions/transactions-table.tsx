@@ -37,11 +37,12 @@ function fmt(val: string) {
 }
 
 export function TransactionsTable({
-  transactions, accounts, invoices,
+  transactions, accounts, invoices, vendors,
 }: {
   transactions: Transaction[];
   accounts: AccountOption[];
   invoices: InvoiceOption[];
+  vendors: { id: number; name: string }[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -119,6 +120,7 @@ export function TransactionsTable({
         onOpenChange={setDialogOpen}
         accounts={accounts}
         invoices={invoices}
+        vendors={vendors}
       />
     </>
   );
