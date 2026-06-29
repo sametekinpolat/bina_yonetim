@@ -58,6 +58,7 @@ export const flats = pgTable("flats", {
   flatNumber: integer("flat_number").notNull().unique(),
   sizeSqm: decimal("size_sqm", { precision: 6, scale: 2 }),
   waterTier: waterUsageTierEnum("water_tier").notNull().default("Tam"),
+  isEmpty: boolean("is_empty").default(false),
 });
 
 export const people = pgTable("people", {
@@ -105,6 +106,7 @@ export const billingPeriods = pgTable("billing_periods", {
   rawGasBill: decimal("raw_gas_bill", { precision: 12, scale: 2 }),
   rawDuesPlanned: decimal("raw_dues_planned", { precision: 12, scale: 2 }),
   lowDiscountPercent: decimal("low_discount_percent", { precision: 5, scale: 2 }).default("15.00"),
+  emptyFlatsPayGas: boolean("empty_flats_pay_gas").default(false),
   distributedWater: decimal("distributed_water", { precision: 12, scale: 2 }),
   distributedGas: decimal("distributed_gas", { precision: 12, scale: 2 }),
   distributedDues: decimal("distributed_dues", { precision: 12, scale: 2 }),

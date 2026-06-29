@@ -11,6 +11,7 @@ interface BillsFormProps {
   rawGasBill: string | null;
   rawWaterBill: string | null;
   lowDiscountPercent: string | null;
+  emptyFlatsPayGas: boolean;
   disabled?: boolean;
 }
 
@@ -19,10 +20,12 @@ export function BillsForm({
   rawGasBill,
   rawWaterBill,
   lowDiscountPercent,
+  emptyFlatsPayGas,
   disabled,
 }: BillsFormProps) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [payGas, setPayGas] = useState(emptyFlatsPayGas);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -81,6 +84,36 @@ export function BillsForm({
           />
           <p className="text-xs text-muted-foreground">%90 indirim = %10 ödeme</p>
         </div>
+      </div>
+      <div className="flex items-center gap-3 mt-4 mb-2">
+        <Label className={`text-sm ${disabled ? "opacity-50" : ""}`}>
+          Boş Daireler Doğalgaz Ödeyecek Mi?
+        </Label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={payGas}
+          disabled={disabled}
+          onClick={() => setPayGas(!payGas)}
+          className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-inner ${
+            payGas ? "bg-green-500" : "bg-red-500"
+          } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        >
+          <span className="sr-only">Toggle empty flats pay gas</span>
+          <span
+            className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+              payGas ? "translate-x-9" : "translate-x-1"
+            }`}
+          />
+          <span
+            className={`absolute text-[10px] font-bold text-white uppercase pointer-events-none transition-all ${
+              payGas ? "left-2" : "right-1.5"
+            }`}
+          >
+            {payGas ? "Evet" : "Hayır"}
+          </span>
+        </button>
+        <input type="hidden" name="emptyFlatsPayGas" value={payGas ? "true" : "false"} />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       {saved && <p className="text-sm text-green-600">Kaydedildi.</p>}

@@ -175,6 +175,7 @@ export default async function PeriodDetailPage({
           rawGasBill={period.rawGasBill}
           rawWaterBill={period.rawWaterBill}
           lowDiscountPercent={period.lowDiscountPercent}
+          emptyFlatsPayGas={period.emptyFlatsPayGas ?? false}
           disabled={isClosed}
         />
       </section>

@@ -23,6 +23,7 @@ const billsSchema = z.object({
   rawGasBill: z.coerce.number().min(0).optional().nullable(),
   rawWaterBill: z.coerce.number().min(0).optional().nullable(),
   lowDiscountPercent: z.coerce.number().min(0).max(100).optional().nullable(),
+  emptyFlatsPayGas: z.coerce.boolean().optional(),
 });
 
 export async function createPeriod(formData: FormData) {
@@ -50,6 +51,7 @@ export async function updatePeriodBills(id: number, formData: FormData) {
     rawGasBill: formData.get("rawGasBill") || null,
     rawWaterBill: formData.get("rawWaterBill") || null,
     lowDiscountPercent: formData.get("lowDiscountPercent") || null,
+    emptyFlatsPayGas: formData.get("emptyFlatsPayGas") === "on" || formData.get("emptyFlatsPayGas") === "true",
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -60,6 +62,7 @@ export async function updatePeriodBills(id: number, formData: FormData) {
         rawGasBill: parsed.data.rawGasBill?.toString() ?? null,
         rawWaterBill: parsed.data.rawWaterBill?.toString() ?? null,
         lowDiscountPercent: parsed.data.lowDiscountPercent?.toString() ?? "15.00",
+        emptyFlatsPayGas: parsed.data.emptyFlatsPayGas,
       })
       .where(eq(billingPeriods.id, id));
     revalidatePath(`/periods/${id}`);
@@ -100,6 +103,7 @@ export async function calculatePeriod(id: number) {
   const flatInputs = allFlats.map((f) => ({
     flatId: f.id,
     waterTier: f.waterTier as "Tam" | "Düşük" | "Yok",
+    isEmpty: f.isEmpty ?? false,
   }));
 
   const lowDiscountPercent = period.lowDiscountPercent
@@ -112,6 +116,7 @@ export async function calculatePeriod(id: number) {
     period.rawWaterBill,
     rawDuesStr,
     lowDiscountPercent,
+    period.emptyFlatsPayGas ?? false,
   );
 
   // Delete existing invoices and reinsert

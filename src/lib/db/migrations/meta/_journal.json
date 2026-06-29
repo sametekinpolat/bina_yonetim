@@ -36,6 +36,13 @@
       "when": 1782533000000,
       "tag": "0004_add_vendor_payables",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782734239711,
+      "tag": "0005_milky_rage",
+      "breakpoints": true
     }
   ]
 }
