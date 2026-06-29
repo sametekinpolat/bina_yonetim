@@ -49,8 +49,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 
-# Install tools to run the scripts directly on the VPS
-RUN npm install -g tsx drizzle-kit
+# Install tools locally so the scripts can resolve the modules
+RUN npm install tsx drizzle-kit dotenv
 
 USER nextjs
 
