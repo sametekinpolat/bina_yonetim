@@ -7,6 +7,7 @@ import { eq, sql, isNull, desc } from "drizzle-orm";
 import Decimal from "decimal.js";
 import { CreditCard, TrendingDown, TrendingUp, FileText } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { DistributeCreditsButton } from "@/components/admin/debts/distribute-credits-button";
 
 function fmt(val: string | number) {
   return `₺${Number(val).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`;
@@ -92,14 +93,17 @@ export default async function DebtsPage() {
             Tüm dairelerin toplam borç ve kredi durumu.
           </p>
         </div>
-        <a
-          href="/api/reports/debts/pdf"
-          download
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <FileText className="mr-1.5 h-4 w-4" />
-          PDF İndir
-        </a>
+        <div className="flex gap-2">
+          <DistributeCreditsButton />
+          <a
+            href="/api/reports/debts/pdf"
+            download
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            PDF İndir
+          </a>
+        </div>
       </div>
 
       {/* Summary cards */}

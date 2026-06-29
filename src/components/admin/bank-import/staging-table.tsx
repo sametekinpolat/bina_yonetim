@@ -423,7 +423,7 @@ export function StagingTable({
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Fatura seçin…">
-                      {(val: string) => debts.find(d => d.id.toString() === val)?.label || val}
+                      {(val: string) => invoices.find(d => d.id.toString() === val)?.label || val}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="w-[400px]">
