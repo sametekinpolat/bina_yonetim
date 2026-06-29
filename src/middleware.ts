@@ -8,6 +8,12 @@ export default auth((req) => {
   // Guest period view is always public
   if (pathname === "/p" || pathname.startsWith("/p/")) return NextResponse.next();
 
+  // Root route: guests go to /p, logged in users go to /dashboard
+  if (pathname === "/") {
+    if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/p", req.url));
+  }
+
   // Auth routes are accessible when logged out
   if (pathname === "/login") {
     if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", req.url));
