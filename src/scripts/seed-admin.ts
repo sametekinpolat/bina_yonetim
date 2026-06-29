@@ -7,11 +7,14 @@ import { users } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
-const EMAIL = "admin@sepdev.online";
-const PASSWORD = "admin1234";
-const NAME = "Admin";
+const EMAIL = process.env.ADMIN_EMAIL;
+const PASSWORD = process.env.ADMIN_PASSWORD;
+const NAME = process.env.ADMIN_NAME || "Admin";
 
 async function main() {
+  if (!EMAIL || !PASSWORD) {
+    throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required.");
+  }
   const client = postgres(process.env.DATABASE_URL!, { prepare: false });
   const db = drizzle(client);
 
