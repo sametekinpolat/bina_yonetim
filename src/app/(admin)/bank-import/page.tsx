@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import {
   bankStatementImports, accounts, monthlyInvoices, billingPeriods, flats,
-  vendorPayables, vendors,
+  vendors,
 } from "@/lib/db/schema";
 import { eq, desc, inArray, sql } from "drizzle-orm";
 import { UploadForm } from "@/components/admin/bank-import/upload-form";
@@ -19,7 +19,7 @@ export default async function BankImportPage() {
       status: bankStatementImports.status,
       direction: bankStatementImports.direction,
       linkedInvoiceId: bankStatementImports.linkedInvoiceId,
-      linkedPayableId: bankStatementImports.linkedPayableId,
+      linkedVendorId: bankStatementImports.linkedVendorId,
       baseAmount: bankStatementImports.baseAmount,
       surchargeAmount: bankStatementImports.surchargeAmount,
       surchargeType: bankStatementImports.surchargeType,
@@ -33,20 +33,16 @@ export default async function BankImportPage() {
     .leftJoin(flats, eq(flats.id, monthlyInvoices.flatId))
     .orderBy(desc(bankStatementImports.rawDate), desc(bankStatementImports.id));
 
-  // Also fetch payable labels for the linked payables
-  const allPayableRows = await db
+  // Fetch all vendors for the expense dropdown
+  const allVendors = await db
     .select({
-      id: vendorPayables.id,
-      description: vendorPayables.description,
-      invoiceAmount: vendorPayables.invoiceAmount,
-      paymentStatus: vendorPayables.paymentStatus,
-      vendorName: vendors.name,
+      id: vendors.id,
+      name: vendors.name,
     })
-    .from(vendorPayables)
-    .innerJoin(vendors, eq(vendors.id, vendorPayables.vendorId))
-    .orderBy(vendors.name, vendorPayables.id);
+    .from(vendors)
+    .orderBy(vendors.name);
 
-  const payableMap = new Map(allPayableRows.map((p) => [p.id, p]));
+  const vendorMap = new Map(allVendors.map((v) => [v.id, v]));
 
   const allAccounts = await db
     .select({ id: accounts.id, accountName: accounts.accountName })
@@ -91,12 +87,10 @@ export default async function BankImportPage() {
     invoiceLabel: r.invoiceLabel
       ? `${r.invoiceLabel} — Daire #${r.invoiceFlatNumber}`
       : null,
-    payableLabel: r.linkedPayableId
+    vendorLabel: r.linkedVendorId
       ? (() => {
-          const p = payableMap.get(r.linkedPayableId);
-          return p
-            ? `${p.vendorName} — ${p.description} (₺${Number(p.invoiceAmount).toLocaleString("tr-TR")} / ${p.paymentStatus})`
-            : null;
+          const v = vendorMap.get(r.linkedVendorId);
+          return v ? v.name : null;
         })()
       : null,
   }));
@@ -117,21 +111,21 @@ export default async function BankImportPage() {
       };
     });
 
-  const payables = allPayableRows.map((p) => ({
-    id: p.id,
-    label: `${p.vendorName} — ${p.description} (₺${Number(p.invoiceAmount).toLocaleString("tr-TR")} / ${p.paymentStatus})`,
+  const vendorOptions = allVendors.map((v) => ({
+    id: v.id,
+    label: v.name,
   }));
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold">Banka İçe Aktarma</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Banka ekstresini yükleyin. Gelir satırlarını daire faturalarına, gider satırlarını vendor borçlarına eşleyin.
+        Banka ekstresini yükleyin. Gelir satırlarını daire faturalarına, gider satırlarını firmalara (carilere) eşleyin.
       </p>
 
       <div className="space-y-6">
         <UploadForm />
-        <StagingTable rows={rows as any} accounts={allAccounts} invoices={invoices} payables={payables} />
+        <StagingTable rows={rows as any} accounts={allAccounts} invoices={invoices} vendors={vendorOptions} />
       </div>
     </div>
   );

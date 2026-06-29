@@ -58,6 +58,7 @@ export const flats = pgTable("flats", {
   flatNumber: integer("flat_number").notNull().unique(),
   sizeSqm: decimal("size_sqm", { precision: 6, scale: 2 }),
   waterTier: waterUsageTierEnum("water_tier").notNull().default("Tam"),
+  isEmpty: boolean("is_empty").default(false),
 });
 
 export const people = pgTable("people", {
@@ -105,6 +106,7 @@ export const billingPeriods = pgTable("billing_periods", {
   rawGasBill: decimal("raw_gas_bill", { precision: 12, scale: 2 }),
   rawDuesPlanned: decimal("raw_dues_planned", { precision: 12, scale: 2 }),
   lowDiscountPercent: decimal("low_discount_percent", { precision: 5, scale: 2 }).default("15.00"),
+  emptyFlatsPayGas: boolean("empty_flats_pay_gas").default(false),
   distributedWater: decimal("distributed_water", { precision: 12, scale: 2 }),
   distributedGas: decimal("distributed_gas", { precision: 12, scale: 2 }),
   distributedDues: decimal("distributed_dues", { precision: 12, scale: 2 }),
@@ -241,7 +243,9 @@ export const transactions = pgTable("transactions", {
   transactionDate: date("transaction_date").notNull(),
   relatedInvoiceId: integer("related_invoice_id").references(() => monthlyInvoices.id),
   relatedExpenseId: integer("related_expense_id").references(() => expenses.id),
-  // Expense-side: link to vendor payable
+  // Expense-side: generic vendor payment
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  // Legacy Expense-side: link to vendor payable (can be kept for historical data)
   relatedPayableId: integer("related_payable_id").references(() => vendorPayables.id),
   // For surcharge sub-transactions (Interest, Penalty, etc.)
   surchargeType: surchargeTypeEnum("surcharge_type"),
@@ -265,7 +269,9 @@ export const bankStatementImports = pgTable("bank_statement_imports", {
   linkedInvoiceId: integer("linked_invoice_id").references(() => monthlyInvoices.id),
   parsedFlatNumber: integer("parsed_flat_number"),
   parsedMonth: varchar("parsed_month", { length: 20 }),
-  // Expense side: link to vendor payable
+  // Expense side: generic link to vendor
+  linkedVendorId: integer("linked_vendor_id").references(() => vendors.id),
+  // Legacy Expense side: link to vendor payable
   linkedPayableId: integer("linked_payable_id").references(() => vendorPayables.id),
   // For expense rows: how much of rawAmount goes to the payable vs. is surcharge
   baseAmount: decimal("base_amount", { precision: 12, scale: 2 }),

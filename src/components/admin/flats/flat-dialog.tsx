@@ -25,6 +25,7 @@ type Flat = {
   flatNumber: number;
   sizeSqm: string | null;
   waterTier: "Tam" | "Düşük" | "Yok";
+  isEmpty: boolean | null;
 };
 
 interface FlatDialogProps {
@@ -101,6 +102,17 @@ export function FlatDialog({ open, onOpenChange, flat }: FlatDialogProps) {
                 <SelectItem value="Yok">Yok — sıcak su kullanılmıyor</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center gap-2 mt-2">
+            <Label htmlFor="isEmpty" className="cursor-pointer">Boş Daire (Aidat ve Yakıt Özel Durumu)</Label>
+            <input 
+              type="checkbox" 
+              id="isEmpty" 
+              name="isEmpty" 
+              defaultChecked={flat?.isEmpty ?? false}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

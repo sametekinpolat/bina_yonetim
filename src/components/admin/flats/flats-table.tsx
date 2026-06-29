@@ -33,6 +33,7 @@ type Flat = {
   flatNumber: number;
   sizeSqm: string | null;
   waterTier: "Tam" | "Düşük" | "Yok";
+  isEmpty: boolean | null;
   residents: { name: string; role: string }[];
 };
 
@@ -87,9 +88,16 @@ export function FlatsTable({ flats }: { flats: Flat[] }) {
                 <TableCell className="font-medium">{flat.flatNumber}</TableCell>
                 <TableCell>{flat.sizeSqm ? `${flat.sizeSqm} m²` : "—"}</TableCell>
                 <TableCell>
-                  <Badge variant={waterVariants[flat.waterTier]}>
-                    {flat.waterTier}
-                  </Badge>
+                  <div className="flex flex-col gap-1 items-start">
+                    <Badge variant={waterVariants[flat.waterTier]}>
+                      {flat.waterTier}
+                    </Badge>
+                    {flat.isEmpty && (
+                      <Badge variant="outline" className="border-primary/50 text-primary">
+                        Boş (Özel)
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {flat.residents.length === 0 ? (

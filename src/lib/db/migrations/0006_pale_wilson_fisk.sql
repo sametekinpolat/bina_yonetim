@@ -1,0 +1,4 @@
+ALTER TABLE "bank_statement_imports" ADD COLUMN "linked_vendor_id" integer;--> statement-breakpoint
+ALTER TABLE "transactions" ADD COLUMN "vendor_id" integer;--> statement-breakpoint
+ALTER TABLE "bank_statement_imports" ADD CONSTRAINT "bank_statement_imports_linked_vendor_id_vendors_id_fk" FOREIGN KEY ("linked_vendor_id") REFERENCES "public"."vendors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_vendor_id_vendors_id_fk" FOREIGN KEY ("vendor_id") REFERENCES "public"."vendors"("id") ON DELETE no action ON UPDATE no action;

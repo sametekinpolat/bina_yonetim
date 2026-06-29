@@ -20,7 +20,7 @@ import {
   manualMatch,
   ignoreStagingRow,
   deleteStagingBatch,
-  linkPayableToStagingRow,
+  linkVendorToStagingRow,
   directMatch,
   unmatchStagingRow,
   revertStagingRow,
@@ -40,9 +40,9 @@ type StagingRow = {
   status: string;
   direction: "Gelir" | "Gider" | null;
   linkedInvoiceId: number | null;
-  linkedPayableId: number | null;
+  linkedVendorId: number | null;
   invoiceLabel: string | null;
-  payableLabel: string | null;
+  vendorLabel: string | null;
   reconciledBy: string | null;
   baseAmount: string | null;
   surchargeAmount: string | null;
@@ -51,7 +51,7 @@ type StagingRow = {
 
 type AccountOption = { id: number; accountName: string };
 type InvoiceOption = { id: number; label: string };
-type PayableOption = { id: number; label: string };
+type VendorOption = { id: number; label: string };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   "Bekliyor": "outline",
@@ -85,12 +85,12 @@ function fmt(val: string) {
 // ---------------------------------------------------------------------------
 
 export function StagingTable({
-  rows, accounts, invoices, payables,
+  rows, accounts, invoices, vendors,
 }: {
   rows: StagingRow[];
   accounts: AccountOption[];
   invoices: InvoiceOption[];
-  payables: PayableOption[];
+  vendors: VendorOption[];
 }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id.toString() ?? "");
   const [isPending, startTransition] = useTransition();
@@ -101,7 +101,7 @@ export function StagingTable({
 
   // Expense match dialog state
   const [expenseMatchTarget, setExpenseMatchTarget] = useState<StagingRow | null>(null);
-  const [selectedPayableId, setSelectedPayableId] = useState("");
+  const [selectedVendorId, setSelectedVendorId] = useState("");
   const [baseAmount, setBaseAmount] = useState("");
   const [surchargeAmount, setSurchargeAmount] = useState("");
   const [surchargeType, setSurchargeType] = useState<string>("");
@@ -147,18 +147,18 @@ export function StagingTable({
 
   function openExpenseMatch(row: StagingRow) {
     setExpenseMatchTarget(row);
-    setSelectedPayableId(row.linkedPayableId?.toString() ?? "");
+    setSelectedVendorId(row.linkedVendorId?.toString() ?? "");
     setBaseAmount(row.baseAmount ?? row.rawAmount);
     setSurchargeAmount(row.surchargeAmount ?? "");
     setSurchargeType(row.surchargeType ?? "");
   }
 
   function saveExpenseMatch() {
-    if (!expenseMatchTarget || !selectedPayableId || !baseAmount) return;
+    if (!expenseMatchTarget || !selectedVendorId || !baseAmount) return;
     startTransition(async () => {
-      await linkPayableToStagingRow(
+      await linkVendorToStagingRow(
         expenseMatchTarget.id,
-        parseInt(selectedPayableId),
+        parseInt(selectedVendorId),
         parseFloat(baseAmount),
         surchargeAmount ? parseFloat(surchargeAmount) : undefined,
         (surchargeType as "Faiz" | "Ceza" | "Ücret" | "Yuvarlama") || undefined,
@@ -197,7 +197,7 @@ export function StagingTable({
   function renderLinkedLabel(row: StagingRow) {
     const dir = row.direction ?? "Gelir";
     if (dir === "Gider") {
-      if (row.payableLabel) return row.payableLabel;
+      if (row.vendorLabel) return row.vendorLabel;
       return <span className="text-muted-foreground">—</span>;
     }
     if (row.invoiceLabel) return row.invoiceLabel;
@@ -268,7 +268,7 @@ export function StagingTable({
             onClick={() => openExpenseMatch(row)}
           >
             <ArrowDownCircle className="mr-1.5 h-3.5 w-3.5" />
-            {dir === "Gider" && row.linkedPayableId ? "Borç Güncelle" : "Borç Eşle"}
+            {dir === "Gider" && row.linkedVendorId ? "Ödeme Güncelle" : "Firma Eşle"}
           </Button>
         )}
         {isPendingRow && (
@@ -440,7 +440,7 @@ export function StagingTable({
       <Dialog open={!!expenseMatchTarget} onOpenChange={(open) => { if (!open) setExpenseMatchTarget(null); }}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Borç Eşle (Gider)</DialogTitle>
+            <DialogTitle>Firma Ödemesi Eşle (Gider)</DialogTitle>
           </DialogHeader>
           {expenseMatchTarget && (
             <div className="space-y-4">
@@ -453,15 +453,15 @@ export function StagingTable({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label>Vendor borcu seçin</Label>
+                <Label>Firma Seçin</Label>
                 <Select
-                  value={selectedPayableId}
-                  onValueChange={(v) => { if (v) setSelectedPayableId(v); }}
+                  value={selectedVendorId}
+                  onValueChange={(v) => { if (v) setSelectedVendorId(v); }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Borç seçin…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Firma seçin…" /></SelectTrigger>
                   <SelectContent className="w-[450px]">
-                    {payables.map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.label}</SelectItem>
+                    {vendors.map((v) => (
+                      <SelectItem key={v.id} value={v.id.toString()}>{v.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -470,8 +470,8 @@ export function StagingTable({
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="base-amount">
-                    Borç Tutarı (₺)
-                    <span className="ml-1 text-xs text-muted-foreground">borca sayılır</span>
+                    Firma Ödeme Tutarı (₺)
+                    <span className="ml-1 text-xs text-muted-foreground">bakiye düşer</span>
                   </Label>
                   <Input
                     id="base-amount"
@@ -486,7 +486,7 @@ export function StagingTable({
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="surcharge-amount">
                     Ek Ücret (₺)
-                    <span className="ml-1 text-xs text-muted-foreground">borca sayılmaz</span>
+                    <span className="ml-1 text-xs text-muted-foreground">bakiye düşmez</span>
                   </Label>
                   <Input
                     id="surcharge-amount"
@@ -518,14 +518,14 @@ export function StagingTable({
               {baseAmount && (
                 <div className="rounded-md bg-muted/50 border p-3 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Borca sayılan:</span>
+                     <span className="text-muted-foreground">Firmaya sayılan:</span>
                     <span className="tabular-nums font-medium">
                       {fmt(parseFloat(baseAmount || "0").toFixed(2))}
                     </span>
                   </div>
                   {surchargeAmount && Number(surchargeAmount) > 0 && (
                     <div className="flex justify-between text-destructive">
-                      <span>{SURCHARGE_LABELS[surchargeType] ?? "Ek Ücret"} (borca sayılmaz):</span>
+                      <span>{SURCHARGE_LABELS[surchargeType] ?? "Ek Ücret"} (firmaya sayılmaz):</span>
                       <span className="tabular-nums">
                         {fmt(parseFloat(surchargeAmount).toFixed(2))}
                       </span>
@@ -559,7 +559,7 @@ export function StagingTable({
           <DialogFooter>
             <Button variant="outline" onClick={() => setExpenseMatchTarget(null)}>İptal</Button>
             <Button
-              disabled={!selectedPayableId || !baseAmount || isPending}
+              disabled={!selectedVendorId || !baseAmount || isPending}
               onClick={saveExpenseMatch}
             >
               {isPending ? "Kaydediliyor…" : "Eşle"}

@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 export interface FlatBillingInput {
   flatId: number;
   waterTier: "Tam" | "Düşük" | "Yok";
+  isEmpty?: boolean;
 }
 
 export interface FlatInvoiceResult {
@@ -32,6 +33,7 @@ export function distributeBills(
   rawWaterBill: string | null,
   rawDuesPlanned: string | null,
   lowDiscountPercent: number = 15,
+  emptyFlatsPayGas: boolean = false,
 ): DistributionResult {
   const gas = rawGasBill ? new Decimal(rawGasBill) : new Decimal(0);
   const water = rawWaterBill ? new Decimal(rawWaterBill) : new Decimal(0);
@@ -39,8 +41,10 @@ export function distributeBills(
 
   const n = flats.length;
 
-  // Gas: always equal split across ALL flats (no seasonal/tier distinction)
-  const gasFee = n > 0 ? roundToNearest5(gas.div(n)) : new Decimal(0);
+  // Gas: split across flats based on emptyFlatsPayGas preference
+  const gasPayingFlats = emptyFlatsPayGas ? flats : flats.filter((f) => !f.isEmpty);
+  const gasN = gasPayingFlats.length;
+  const gasFeePerFlat = gasN > 0 ? roundToNearest5(gas.div(gasN)) : new Decimal(0);
 
   // Dues: equal split across all flats
   const duesFee = n > 0 ? roundToNearest5(dues.div(n)) : new Decimal(0);
@@ -77,6 +81,8 @@ export function distributeBills(
         : flat.waterTier === "Düşük"
           ? lowWaterFee
           : new Decimal(0);
+    const isGasPaying = emptyFlatsPayGas || !flat.isEmpty;
+    const gasFee = isGasPaying ? gasFeePerFlat : new Decimal(0);
     const totalDue = gasFee.add(waterFee).add(duesFee);
     return { flatId: flat.flatId, gasFee, waterFee, otherFee: duesFee, totalDue };
   });
