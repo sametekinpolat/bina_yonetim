@@ -9,7 +9,6 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import Decimal from "decimal.js";
 import { z } from "zod";
-import { recalculatePayableStatus } from "./vendor-payables";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,11 +61,11 @@ export async function approveStagingRow(stagingId: number, accountId: number) {
   const direction = row.direction ?? "Gelir";
 
   // -----------------------------------------------------------------------
-  // EXPENSE direction: pay a vendor payable or record direct expense
+  // EXPENSE direction: record direct expense or vendor payment
   // -----------------------------------------------------------------------
   if (direction === "Gider") {
-    if (!row.linkedPayableId) {
-      // Direct expense without linked payable
+    if (!row.linkedVendorId) {
+      // Direct expense without linked vendor
       await db.insert(transactions).values({
         accountId,
         transactionType: "Gider",
@@ -99,40 +98,24 @@ export async function approveStagingRow(stagingId: number, accountId: number) {
       transactionType: "Gider",
       amount: baseAmt.toFixed(2),
       transactionDate: row.rawDate,
-      relatedPayableId: row.linkedPayableId,
+      vendorId: row.linkedVendorId, // linked to vendor now
       description: row.rawDescription ?? null,
     });
 
     // 2. If there is a surcharge (interest / penalty), insert a separate transaction
-    //    Note: this does NOT update amountPaid on the payable.
     if (!surchargeAmt.isZero() && row.surchargeType) {
       await db.insert(transactions).values({
         accountId,
         transactionType: "Gider",
         amount: surchargeAmt.toFixed(2),
         transactionDate: row.rawDate,
-        relatedPayableId: row.linkedPayableId,
+        vendorId: row.linkedVendorId,
         surchargeType: row.surchargeType,
         description: `${row.surchargeType} surcharge — ${row.rawDescription ?? ""}`.trim(),
       });
     }
 
-    // 3. Update amountPaid on the payable (only base amount, NOT surcharge)
-    const [payable] = await db
-      .select({ amountPaid: vendorPayables.amountPaid })
-      .from(vendorPayables)
-      .where(eq(vendorPayables.id, row.linkedPayableId))
-      .limit(1);
-
-    const newPaid = new Decimal(payable?.amountPaid ?? "0").add(baseAmt).toFixed(2);
-    await db
-      .update(vendorPayables)
-      .set({ amountPaid: newPaid })
-      .where(eq(vendorPayables.id, row.linkedPayableId));
-
-    await recalculatePayableStatus(row.linkedPayableId);
-
-    // 4. Mark staging row reconciled
+    // 3. Mark staging row reconciled
     const finalStatus = row.status === "Otomatik Eşleşti" ? "Otomatik Eşleşti" : "Manuel Eşleşti";
     await db
       .update(bankStatementImports)
@@ -242,6 +225,7 @@ export async function directMatch(stagingId: number, direction: "Gelir" | "Gider
       rawDescription: description, // Save description to row so it's used when creating transaction
       linkedInvoiceId: null,
       linkedPayableId: null,
+      linkedVendorId: null,
     })
     .where(eq(bankStatementImports.id, stagingId));
   revalidatePath("/bank-import");
@@ -256,6 +240,7 @@ export async function unmatchStagingRow(stagingId: number) {
       direction: null, // Allow direction to be reset or keep default
       linkedInvoiceId: null,
       linkedPayableId: null,
+      linkedVendorId: null,
       baseAmount: null,
       surchargeAmount: null,
       surchargeType: null,
@@ -274,6 +259,7 @@ export async function revertStagingRow(stagingId: number) {
       direction: null,
       linkedInvoiceId: null,
       linkedPayableId: null,
+      linkedVendorId: null,
       baseAmount: null,
       surchargeAmount: null,
       surchargeType: null,
@@ -284,31 +270,31 @@ export async function revertStagingRow(stagingId: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Expense matching: link a staging row to a vendor payable
+// Expense matching: link a staging row to a vendor directly
 // ---------------------------------------------------------------------------
 
-export async function linkPayableToStagingRow(
+export async function linkVendorToStagingRow(
   stagingId: number,
-  payableId: number,
+  vendorId: number,
   baseAmount: number,
   surchargeAmount?: number,
   surchargeType?: "Faiz" | "Ceza" | "Ücret" | "Yuvarlama",
 ) {
   const schema = z.object({
-    payableId: z.number().int().positive(),
+    vendorId: z.number().int().positive(),
     baseAmount: z.number().min(0),
     surchargeAmount: z.number().min(0).optional(),
     surchargeType: z.enum(["Faiz", "Ceza", "Ücret", "Yuvarlama"]).optional(),
   });
 
-  const parsed = schema.safeParse({ payableId, baseAmount, surchargeAmount, surchargeType });
+  const parsed = schema.safeParse({ vendorId, baseAmount, surchargeAmount, surchargeType });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   await db
     .update(bankStatementImports)
     .set({
       direction: "Gider",
-      linkedPayableId: payableId,
+      linkedVendorId: vendorId,
       baseAmount: baseAmount.toFixed(2),
       surchargeAmount: surchargeAmount ? surchargeAmount.toFixed(2) : null,
       surchargeType: surchargeType ?? null,

@@ -43,6 +43,13 @@
       "when": 1782734239711,
       "tag": "0005_milky_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782735263225,
+      "tag": "0006_pale_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

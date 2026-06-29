@@ -1,12 +1,11 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { transactions, monthlyInvoices, vendorPayables } from "@/lib/db/schema";
+import { transactions, monthlyInvoices } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import Decimal from "decimal.js";
-import { recalculatePayableStatus } from "./vendor-payables";
 
 const txSchema = z.object({
   accountId: z.coerce.number().int().positive(),
@@ -14,7 +13,7 @@ const txSchema = z.object({
   amount: z.coerce.number().positive(),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   relatedInvoiceId: z.coerce.number().int().positive().optional().nullable(),
-  relatedExpenseId: z.coerce.number().int().positive().optional().nullable(),
+  vendorId: z.coerce.number().int().positive().optional().nullable(),
   description: z.string().optional().nullable(),
 });
 
@@ -42,23 +41,6 @@ async function applyInvoicePayment(invoiceId: number, delta: Decimal) {
     .where(eq(monthlyInvoices.id, invoiceId));
 }
 
-async function applyPayablePayment(payableId: number, delta: Decimal) {
-  const [payable] = await db
-    .select({ amountPaid: vendorPayables.amountPaid })
-    .from(vendorPayables)
-    .where(eq(vendorPayables.id, payableId))
-    .limit(1);
-  if (!payable) return;
-
-  const newPaid = Decimal.max(new Decimal(payable.amountPaid ?? "0").add(delta), new Decimal(0));
-  await db
-    .update(vendorPayables)
-    .set({ amountPaid: newPaid.toFixed(2) })
-    .where(eq(vendorPayables.id, payableId));
-
-  await recalculatePayableStatus(payableId);
-}
-
 export async function createTransaction(formData: FormData) {
   const parsed = txSchema.safeParse({
     accountId: formData.get("accountId"),
@@ -66,7 +48,7 @@ export async function createTransaction(formData: FormData) {
     amount: formData.get("amount"),
     transactionDate: formData.get("transactionDate"),
     relatedInvoiceId: formData.get("relatedInvoiceId") || null,
-    relatedExpenseId: formData.get("relatedExpenseId") || null,
+    vendorId: formData.get("vendorId") || null,
     description: formData.get("description") || null,
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -100,7 +82,7 @@ export async function deleteTransaction(id: number) {
         transactionType: transactions.transactionType,
         amount: transactions.amount,
         relatedInvoiceId: transactions.relatedInvoiceId,
-        relatedPayableId: transactions.relatedPayableId,
+        vendorId: transactions.vendorId,
         surchargeType: transactions.surchargeType,
       })
       .from(transactions)
@@ -112,11 +94,6 @@ export async function deleteTransaction(id: number) {
     if (tx?.transactionType === "Gelir" && tx.relatedInvoiceId) {
       await applyInvoicePayment(
         tx.relatedInvoiceId,
-        new Decimal(tx.amount).negated()
-      );
-    } else if (tx?.transactionType === "Gider" && tx.relatedPayableId && !tx.surchargeType) {
-      await applyPayablePayment(
-        tx.relatedPayableId,
         new Decimal(tx.amount).negated()
       );
     }

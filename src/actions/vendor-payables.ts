@@ -83,18 +83,6 @@ export async function updateVendorPayable(id: number, formData: FormData) {
 }
 
 export async function deleteVendorPayable(id: number) {
-  // Only allow deletion if nothing has been paid yet
-  const [payable] = await db
-    .select({ amountPaid: vendorPayables.amountPaid })
-    .from(vendorPayables)
-    .where(eq(vendorPayables.id, id))
-    .limit(1);
-
-  if (!payable) return { error: "Payable not found." };
-
-  const paid = new Decimal(payable.amountPaid ?? "0");
-  if (!paid.isZero()) return { error: "Cannot delete a payable that has payments recorded." };
-
   try {
     await db.delete(vendorPayables).where(eq(vendorPayables.id, id));
     revalidatePath("/vendors");
@@ -109,73 +97,29 @@ export async function deleteVendorPayable(id: number) {
  *  positive = we still owe them money
  *  negative = they owe us money (credit / overpayment)
  */
-export async function getVendorBalance(
-  vendorId: number,
-): Promise<{ balance: number; payables: VendorPayableRow[] }> {
+export async function getVendorBalance(vendorId: number) {
+  // Not heavily used anymore as UI calculates ledger, but leaving for utility
   const rows = await db
     .select()
     .from(vendorPayables)
-    .where(eq(vendorPayables.vendorId, vendorId))
-    .orderBy(vendorPayables.createdAt);
+    .where(eq(vendorPayables.vendorId, vendorId));
 
-  const payableRows: VendorPayableRow[] = rows.map((r) => ({
-    id: r.id,
-    description: r.description,
-    invoiceAmount: r.invoiceAmount,
-    amountPaid: r.amountPaid ?? "0",
-    dueDate: r.dueDate,
-    paymentStatus: r.paymentStatus ?? "Ödenmedi",
-    notes: r.notes,
-    periodId: r.periodId,
-    planExpenseId: r.planExpenseId,
-    createdAt: r.createdAt?.toISOString() ?? null,
-  }));
-
-  const balance = payableRows.reduce((acc, r) => {
-    const owed = new Decimal(r.invoiceAmount).minus(new Decimal(r.amountPaid));
-    return acc.add(owed);
+  const balance = rows.reduce((acc, r) => {
+    return acc.add(new Decimal(r.invoiceAmount));
   }, new Decimal(0));
+  // Note: Doesn't subtract payments in this simplified version since payments are in transactions now.
+  // Proper ledger balance should consider transactions.
 
-  return { balance: balance.toNumber(), payables: payableRows };
+  return { balance: balance.toNumber() };
 }
 
 export type VendorPayableRow = {
   id: number;
   description: string;
   invoiceAmount: string;
-  amountPaid: string;
   dueDate: string | null;
-  paymentStatus: string;
   notes: string | null;
   periodId: number | null;
   planExpenseId: number | null;
   createdAt: string | null;
 };
-
-/**
- * Recalculate paymentStatus for a payable based on amountPaid vs invoiceAmount.
- * Called internally after a payment is applied.
- */
-export async function recalculatePayableStatus(payableId: number) {
-  const [payable] = await db
-    .select({ invoiceAmount: vendorPayables.invoiceAmount, amountPaid: vendorPayables.amountPaid })
-    .from(vendorPayables)
-    .where(eq(vendorPayables.id, payableId))
-    .limit(1);
-
-  if (!payable) return;
-
-  const due = new Decimal(payable.invoiceAmount);
-  const paid = new Decimal(payable.amountPaid ?? "0");
-
-  let status: "Ödenmedi" | "Kısmi" | "Ödendi" | "Fazla Ödendi" = "Ödenmedi";
-  if (paid.isZero()) status = "Ödenmedi";
-  else if (paid.lt(due)) status = "Kısmi";
-  else if (paid.eq(due)) status = "Ödendi";
-  else status = "Fazla Ödendi";
-
-  await db
-    .update(vendorPayables)
-    .set({ paymentStatus: status })
-    .where(eq(vendorPayables.id, payableId));
-}

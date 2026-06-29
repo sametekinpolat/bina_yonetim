@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
-import { vendors, vendorPayables } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { vendors, vendorPayables, transactions } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { VendorsTable } from "@/components/admin/vendors/vendors-table";
-import { VendorPayablesPanel } from "@/components/admin/vendors/vendor-payables-panel";
+import { VendorLedgerPanel, LedgerItem } from "@/components/admin/vendors/vendor-ledger-panel";
 import { Badge } from "@/components/ui/badge";
 import Decimal from "decimal.js";
 
@@ -13,18 +13,48 @@ function fmt(val: string) {
 export default async function VendorsPage() {
   const allVendors = await db.select().from(vendors).orderBy(vendors.name);
 
-  // Fetch all payables grouped by vendor
+  // Fetch all payables (debts)
   const allPayables = await db
     .select()
     .from(vendorPayables)
-    .orderBy(vendorPayables.vendorId, vendorPayables.createdAt);
+    .orderBy(vendorPayables.createdAt);
 
-  // Group payables by vendorId
-  const payablesByVendor = new Map<number, typeof allPayables>();
+  // Fetch all transactions (payments) for vendors
+  const allPayments = await db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.transactionType, "Gider")))
+    .orderBy(transactions.transactionDate);
+
+  // Group ledger items by vendorId
+  const ledgerByVendor = new Map<number, LedgerItem[]>();
+
   for (const p of allPayables) {
-    const list = payablesByVendor.get(p.vendorId) ?? [];
-    list.push(p);
-    payablesByVendor.set(p.vendorId, list);
+    const list = ledgerByVendor.get(p.vendorId) ?? [];
+    list.push({
+      id: `payable-${p.id}`,
+      type: "debt",
+      date: p.createdAt?.toISOString() ?? new Date().toISOString(),
+      description: p.description,
+      amount: p.invoiceAmount,
+      originalId: p.id,
+    });
+    ledgerByVendor.set(p.vendorId, list);
+  }
+
+  for (const tx of allPayments) {
+    if (tx.vendorId) {
+      const list = ledgerByVendor.get(tx.vendorId) ?? [];
+      list.push({
+        id: `payment-${tx.id}`,
+        type: "payment",
+        date: tx.transactionDate,
+        description: tx.description ?? "Ödeme",
+        amount: tx.amount,
+        originalId: tx.id,
+      });
+      ledgerByVendor.set(tx.vendorId, list);
+    }
   }
 
   return (
@@ -37,15 +67,18 @@ export default async function VendorsPage() {
         <VendorsTable vendors={allVendors as any} />
       </div>
 
-      {/* Per-vendor payables sections */}
+      {/* Per-vendor ledger sections */}
       {allVendors.map((vendor) => {
-        const payables = payablesByVendor.get(vendor.id) ?? [];
-        if (payables.length === 0) return null;
+        const ledger = ledgerByVendor.get(vendor.id) ?? [];
+        if (ledger.length === 0) return null;
 
         // Calculate balance for this vendor
-        const balance = payables.reduce((acc, p) => {
-          return acc.add(new Decimal(p.invoiceAmount).minus(new Decimal(p.amountPaid ?? "0")));
+        const balance = ledger.reduce((acc, item) => {
+          if (item.type === "debt") return acc.add(new Decimal(item.amount));
+          if (item.type === "payment") return acc.sub(new Decimal(item.amount));
+          return acc;
         }, new Decimal(0));
+        
         const balanceNum = balance.toNumber();
 
         return (
@@ -64,20 +97,9 @@ export default async function VendorsPage() {
                   : "Bakiye Yok"}
               </Badge>
             </div>
-            <VendorPayablesPanel
+            <VendorLedgerPanel
               vendor={{ id: vendor.id, name: vendor.name }}
-              payables={payables.map((p) => ({
-                id: p.id,
-                description: p.description,
-                invoiceAmount: p.invoiceAmount,
-                amountPaid: p.amountPaid ?? "0",
-                dueDate: p.dueDate,
-                paymentStatus: p.paymentStatus ?? "Ödenmedi",
-                notes: p.notes,
-                periodId: p.periodId,
-                planExpenseId: p.planExpenseId,
-                createdAt: p.createdAt?.toISOString() ?? null,
-              }))}
+              ledger={ledger}
             />
           </div>
         );
