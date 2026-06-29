@@ -204,87 +204,91 @@ export function PeriodExpensesSection({
         {items.map((item) => {
           const vendor = item.vendorId ? vendorMap.get(item.vendorId) : null;
           return (
-            <div key={item.id} className="flex items-center gap-2">
+            <div key={item.id} className="flex flex-col gap-2 p-3 rounded-md border border-border bg-card">
               <Input
-                className="flex-1 h-8 text-sm"
+                className="w-full h-8 text-sm font-medium"
                 value={item.description}
                 placeholder="Açıklama"
                 disabled={disabled}
                 onChange={(e) => updateDesc(item.id, e.target.value)}
                 onBlur={() => !disabled && saveItem(item)}
               />
-              <Input
-                className="w-28 h-8 text-sm text-right"
-                type="number"
-                step="1"
-                min="0"
-                value={item.amount}
-                placeholder="0"
-                disabled={disabled}
-                onChange={(e) => updateAmount(item.id, e.target.value)}
-                onBlur={() => !disabled && saveItem(item)}
-              />
-              {/* Vendor selector */}
-              {!disabled && (
-                <Select
-                  value={item.vendorId?.toString() ?? NO_VENDOR}
-                  onValueChange={(v) =>
-                    updateItemVendor(item.id, v && v !== NO_VENDOR ? parseInt(v) : null)
-                  }
-                >
-                  <SelectTrigger className="w-40 h-8 text-xs">
-                    <Building2 className="h-3 w-3 mr-1 opacity-50 shrink-0" />
-                    <SelectValue placeholder="Firma seç…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>
-                    {vendors.map((v) => (
-                      <SelectItem key={v.id} value={v.id.toString()}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {disabled && vendor && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1 w-40">
-                  <Building2 className="h-3 w-3" /> {vendor.name}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-28 h-8 text-sm text-right font-medium"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={item.amount}
+                  placeholder="0"
+                  disabled={disabled}
+                  onChange={(e) => updateAmount(item.id, e.target.value)}
+                  onBlur={() => !disabled && saveItem(item)}
+                />
+                {/* Vendor selector */}
+                {!disabled && (
+                  <Select
+                    value={item.vendorId?.toString() ?? NO_VENDOR}
+                    onValueChange={(v) =>
+                      updateItemVendor(item.id, v && v !== NO_VENDOR ? parseInt(v) : null)
+                    }
+                  >
+                    <SelectTrigger className="w-40 h-8 text-xs">
+                      <Building2 className="h-3 w-3 mr-1 opacity-50 shrink-0" />
+                      <SelectValue placeholder="Firma seç…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>
+                      {vendors.map((v) => (
+                        <SelectItem key={v.id} value={v.id.toString()}>
+                          {v.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {disabled && vendor && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 w-40">
+                    <Building2 className="h-3 w-3" /> {vendor.name}
+                  </span>
+                )}
 
-              {/* Create payable button — only shown when a vendor is linked */}
-              {!disabled && item.vendorId && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={item.hasPayable ? "secondary" : "outline"}
-                  className="h-8 text-xs px-2 whitespace-nowrap"
-                  onClick={() => openPayableDialog(item)}
-                  title="Borç kaydı oluştur"
-                >
-                  {item.hasPayable ? (
-                    <>
-                      <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
-                      Borç ✓
-                    </>
-                  ) : (
-                    "+ Borç"
-                  )}
-                </Button>
-              )}
+                {/* Create payable button — only shown when a vendor is linked */}
+                {!disabled && item.vendorId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={item.hasPayable ? "secondary" : "outline"}
+                    className="h-8 text-xs px-2 whitespace-nowrap"
+                    onClick={() => openPayableDialog(item)}
+                    title="Borç kaydı oluştur"
+                  >
+                    {item.hasPayable ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
+                        Borç ✓
+                      </>
+                    ) : (
+                      "+ Borç"
+                    )}
+                  </Button>
+                )}
 
-              {!disabled && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  disabled={isPending}
-                  onClick={() => removeItem(item.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
+                <div className="flex-1" />
+
+                {!disabled && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    disabled={isPending}
+                    onClick={() => removeItem(item.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -292,47 +296,51 @@ export function PeriodExpensesSection({
 
       {/* Add new row */}
       {!disabled && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 p-3 rounded-md border border-dashed border-border bg-muted/30">
           <Input
-            className="flex-1 h-8 text-sm"
-            placeholder="Açıklama"
+            className="w-full h-8 text-sm font-medium"
+            placeholder="Yeni Gider Açıklaması"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addCustom()}
           />
-          <Input
-            className="w-28 h-8 text-sm text-right"
-            type="number"
-            step="1"
-            min="0"
-            placeholder="Tutar"
-            value={newAmount}
-            onChange={(e) => setNewAmount(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCustom()}
-          />
-          <Select value={newVendorId} onValueChange={(v) => setNewVendorId(v ?? NO_VENDOR)}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Firma seç…" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>
-              {vendors.map((v) => (
-                <SelectItem key={v.id} value={v.id.toString()}>
-                  {v.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            disabled={isPending || !newDesc.trim() || !newAmount}
-            onClick={addCustom}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-28 h-8 text-sm text-right font-medium"
+              type="number"
+              step="1"
+              min="0"
+              placeholder="Tutar"
+              value={newAmount}
+              onChange={(e) => setNewAmount(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addCustom()}
+            />
+            <Select value={newVendorId} onValueChange={(v) => setNewVendorId(v ?? NO_VENDOR)}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <Building2 className="h-3 w-3 mr-1 opacity-50 shrink-0" />
+                <SelectValue placeholder="Firma seç…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_VENDOR}>— Firma yok —</SelectItem>
+                {vendors.map((v) => (
+                  <SelectItem key={v.id} value={v.id.toString()}>
+                    {v.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-8"
+              disabled={isPending || !newDesc.trim() || !newAmount}
+              onClick={addCustom}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Ekle
+            </Button>
+          </div>
         </div>
       )}
 
