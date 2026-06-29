@@ -45,5 +45,7 @@ jobs:
             
             # Pull the latest image and restart the container
             export DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/yonetim-app:latest
-            docker-compose pull
-            docker-compose up -d
+            
+            # Use modern 'docker compose' (if it fails, ensure Docker is installed on your VPS)
+            docker compose pull
+            docker compose up -d
