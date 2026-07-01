@@ -166,10 +166,10 @@ export async function GET(_req: NextRequest) {
   doc.font("Roboto").fontSize(9).fillColor(GREY_MED)
     .text("Net Bakiye", MARGIN, yContent + 10, { width: CONTENT_W, align: "center" });
   
-  const displayAmount = totalUnpaidAmount.isPositive()
+  const displayAmount = totalUnpaidAmount.greaterThan(0)
     ? `-${fmtMoney(totalUnpaidAmount)}`
     : fmtMoney(totalUnpaidAmount.abs());
-  const displayColor = totalUnpaidAmount.isPositive() ? RED_DEBT_DARK : GREEN_NET;
+  const displayColor = totalUnpaidAmount.greaterThan(0) ? RED_DEBT_DARK : GREEN_NET;
 
   doc.font("Roboto-Bold").fontSize(18).fillColor(displayColor)
     .text(displayAmount, MARGIN, yContent + 26, { width: CONTENT_W, align: "center" });
@@ -218,12 +218,12 @@ export async function GET(_req: NextRequest) {
     let bakiyeColor = GREEN_NET;
     let bakiyeBold = false;
 
-    if (tenant.net.isPositive()) {
+    if (tenant.net.greaterThan(0)) {
       statusText = "Borçlu";
       statusColor = RED_DEBT;
       bakiyeColor = RED_DEBT_DARK;
       bakiyeBold = true;
-    } else if (tenant.net.isNegative()) {
+    } else if (tenant.net.lessThan(0)) {
       statusText = "Kredi";
       statusColor = BLUE_CREDIT;
       bakiyeColor = BLUE_CREDIT;

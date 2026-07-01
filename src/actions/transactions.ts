@@ -9,6 +9,7 @@ import Decimal from "decimal.js";
 
 const txSchema = z.object({
   accountId: z.coerce.number().int().positive(),
+  toAccountId: z.coerce.number().int().positive().optional().nullable(),
   transactionType: z.enum(["Gelir", "Gider", "Transfer"]),
   amount: z.coerce.number().positive(),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -44,6 +45,7 @@ async function applyInvoicePayment(invoiceId: number, delta: Decimal) {
 export async function createTransaction(formData: FormData) {
   const parsed = txSchema.safeParse({
     accountId: formData.get("accountId"),
+    toAccountId: formData.get("toAccountId") || null,
     transactionType: formData.get("transactionType"),
     amount: formData.get("amount"),
     transactionDate: formData.get("transactionDate"),
@@ -54,10 +56,35 @@ export async function createTransaction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
-    await db.insert(transactions).values({
-      ...parsed.data,
-      amount: parsed.data.amount.toString(),
-    });
+    if (parsed.data.transactionType === "Transfer" && parsed.data.toAccountId) {
+      // Create two records for transfer: one out (positive amount -> subtracts), one in (negative amount -> adds)
+      await db.insert(transactions).values([
+        {
+          accountId: parsed.data.accountId,
+          transactionType: "Transfer",
+          amount: parsed.data.amount.toString(),
+          transactionDate: parsed.data.transactionDate,
+          description: parsed.data.description || "Transfer (Çıkış)",
+        },
+        {
+          accountId: parsed.data.toAccountId,
+          transactionType: "Transfer",
+          amount: (-parsed.data.amount).toString(),
+          transactionDate: parsed.data.transactionDate,
+          description: parsed.data.description || "Transfer (Giriş)",
+        }
+      ]);
+    } else {
+      await db.insert(transactions).values({
+        accountId: parsed.data.accountId,
+        transactionType: parsed.data.transactionType,
+        amount: parsed.data.amount.toString(),
+        transactionDate: parsed.data.transactionDate,
+        relatedInvoiceId: parsed.data.relatedInvoiceId,
+        vendorId: parsed.data.vendorId,
+        description: parsed.data.description,
+      });
+    }
 
     if (parsed.data.transactionType === "Gelir" && parsed.data.relatedInvoiceId) {
       await applyInvoicePayment(
@@ -70,7 +97,8 @@ export async function createTransaction(formData: FormData) {
     revalidatePath("/accounts");
     revalidatePath("/debts");
     return { success: true };
-  } catch {
+  } catch (err) {
+    console.error(err);
     return { error: "Failed to create transaction." };
   }
 }

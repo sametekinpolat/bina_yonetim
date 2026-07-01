@@ -84,8 +84,9 @@ export function TransactionsTable({
                     {tx.transactionType}
                   </Badge>
                 </TableCell>
-                <TableCell className={`text-right tabular-nums font-medium ${tx.transactionType === "Gider" ? "text-destructive" : ""}`}>
-                  {tx.transactionType === "Gider" ? "−" : "+"}{fmt(tx.amount)}
+                <TableCell className={`text-right tabular-nums font-medium ${tx.transactionType === "Gider" || (tx.transactionType === "Transfer" && Number(tx.amount) > 0) ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
+                  {tx.transactionType === "Gider" || (tx.transactionType === "Transfer" && Number(tx.amount) > 0) ? "−" : "+"}
+                  {fmt(Math.abs(Number(tx.amount)).toString())}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {tx.invoiceLabel ?? "—"}

@@ -29,6 +29,7 @@ export function TransactionDialog({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [accountId, setAccountId] = useState(accounts[0]?.id.toString() ?? "");
+  const [toAccountId, setToAccountId] = useState("");
   const [txType, setTxType] = useState("Gelir");
   const [invoiceId, setInvoiceId] = useState("");
   const [vendorId, setVendorId] = useState("");
@@ -39,6 +40,7 @@ export function TransactionDialog({
     const fd = new FormData(e.currentTarget);
     fd.set("accountId", accountId);
     fd.set("transactionType", txType);
+    if (txType === "Transfer" && toAccountId) fd.set("toAccountId", toAccountId);
     if (txType === "Gelir" && invoiceId) fd.set("relatedInvoiceId", invoiceId);
     if (txType === "Gider" && vendorId) fd.set("vendorId", vendorId);
 
@@ -76,6 +78,29 @@ export function TransactionDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {txType === "Transfer" && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Hedef Hesap</Label>
+              <Select value={toAccountId} onValueChange={(v) => { if (v) setToAccountId(v); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Hedef hesap seç…">
+                      {(val: string) => {
+                        const acc = accounts.find(a => a.id.toString() === val);
+                        return acc ? `${acc.accountName} (${acc.accountType})` : val;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                <SelectContent>
+                  {accounts.filter(a => a.id.toString() !== accountId).map((a) => (
+                    <SelectItem key={a.id} value={a.id.toString()}>
+                      {a.accountName} ({a.accountType})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -162,7 +187,7 @@ export function TransactionDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
-            <Button type="submit" disabled={isPending || !accountId}>
+            <Button type="submit" disabled={isPending || !accountId || (txType === "Transfer" && !toAccountId) || (txType === "Transfer" && accountId === toAccountId)}>
               {isPending ? "Kaydediliyor…" : "İşlem Ekle"}
             </Button>
           </DialogFooter>
