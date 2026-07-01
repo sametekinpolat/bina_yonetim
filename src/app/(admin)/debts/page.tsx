@@ -63,19 +63,19 @@ export default async function DebtsPage() {
 
   // Summary
   const totalDebt = flatDebts.reduce(
-    (a, f) => (f.net.isPositive() ? a.add(f.net) : a),
+    (a, f) => (f.net.greaterThan(0) ? a.add(f.net) : a),
     new Decimal(0)
   );
   const totalCredit = flatDebts.reduce(
-    (a, f) => (f.net.isNegative() ? a.add(f.net.abs()) : a),
+    (a, f) => (f.net.lessThan(0) ? a.add(f.net.abs()) : a),
     new Decimal(0)
   );
 
   // Sort: debts first (desc), then no-debt, then credits last
   const sorted = [...flatDebts].sort((a, b) => {
-    if (a.net.isPositive() && b.net.isPositive()) return b.net.cmp(a.net);
-    if (a.net.isPositive()) return -1;
-    if (b.net.isPositive()) return 1;
+    if (a.net.greaterThan(0) && b.net.greaterThan(0)) return b.net.cmp(a.net);
+    if (a.net.greaterThan(0)) return -1;
+    if (b.net.greaterThan(0)) return 1;
     if (a.net.isZero() && b.net.isZero()) return a.flatNumber - b.flatNumber;
     if (a.net.isZero()) return -1;
     if (b.net.isZero()) return 1;
@@ -132,8 +132,8 @@ export default async function DebtsPage() {
       {/* Flat list */}
       <div className="rounded-lg border divide-y">
         {sorted.map((f) => {
-          const isDebt = f.net.isPositive();
-          const isCredit = f.net.isNegative();
+          const isDebt = f.net.greaterThan(0);
+          const isCredit = f.net.lessThan(0);
 
           return (
             <Link
