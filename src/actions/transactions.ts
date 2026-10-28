@@ -1,11 +1,11 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { transactions, monthlyInvoices } from "@/lib/db/schema";
+import { transactions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import Decimal from "decimal.js";
+import { recalculateInvoicePayment } from "@/lib/db/invoice-payments";
 
 const txSchema = z.object({
   accountId: z.coerce.number().int().positive(),
@@ -17,30 +17,6 @@ const txSchema = z.object({
   vendorId: z.coerce.number().int().positive().optional().nullable(),
   description: z.string().optional().nullable(),
 });
-
-async function applyInvoicePayment(invoiceId: number, delta: Decimal) {
-  const [inv] = await db
-    .select({ totalDue: monthlyInvoices.totalDue, amountPaid: monthlyInvoices.amountPaid })
-    .from(monthlyInvoices)
-    .where(eq(monthlyInvoices.id, invoiceId))
-    .limit(1);
-  if (!inv) return;
-
-  const due = new Decimal(inv.totalDue);
-  const newPaid = Decimal.max(new Decimal(inv.amountPaid ?? "0").add(delta), new Decimal(0));
-  const newPaidStr = newPaid.toFixed(2);
-
-  let status: "Ödenmedi" | "Kısmi" | "Ödendi" | "Fazla Ödendi";
-  if (newPaid.isZero()) status = "Ödenmedi";
-  else if (newPaid.lt(due)) status = "Kısmi";
-  else if (newPaid.eq(due)) status = "Ödendi";
-  else status = "Fazla Ödendi";
-
-  await db
-    .update(monthlyInvoices)
-    .set({ amountPaid: newPaidStr, status })
-    .where(eq(monthlyInvoices.id, invoiceId));
-}
 
 export async function createTransaction(formData: FormData) {
   const parsed = txSchema.safeParse({
@@ -87,10 +63,7 @@ export async function createTransaction(formData: FormData) {
     }
 
     if (parsed.data.transactionType === "Gelir" && parsed.data.relatedInvoiceId) {
-      await applyInvoicePayment(
-        parsed.data.relatedInvoiceId,
-        new Decimal(parsed.data.amount)
-      );
+      await recalculateInvoicePayment(parsed.data.relatedInvoiceId);
     }
 
     revalidatePath("/transactions");
@@ -120,10 +93,7 @@ export async function deleteTransaction(id: number) {
     await db.delete(transactions).where(eq(transactions.id, id));
 
     if (tx?.transactionType === "Gelir" && tx.relatedInvoiceId) {
-      await applyInvoicePayment(
-        tx.relatedInvoiceId,
-        new Decimal(tx.amount).negated()
-      );
+      await recalculateInvoicePayment(tx.relatedInvoiceId);
     }
 
     revalidatePath("/transactions");

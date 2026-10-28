@@ -1,0 +1,3 @@
+ALTER TABLE "bank_statement_imports" ADD COLUMN "linked_split_invoice_id" integer;--> statement-breakpoint
+ALTER TABLE "bank_statement_imports" ADD COLUMN "linked_invoice_amount" numeric(12, 2);--> statement-breakpoint
+ALTER TABLE "bank_statement_imports" ADD CONSTRAINT "bank_statement_imports_linked_split_invoice_id_monthly_invoices_id_fk" FOREIGN KEY ("linked_split_invoice_id") REFERENCES "public"."monthly_invoices"("id") ON DELETE no action ON UPDATE no action;

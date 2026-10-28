@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:baseline": "node src/scripts/baseline-drizzle.mjs",
+    "db:migrate": "drizzle-kit migrate",
     "seed:admin": "npx tsx src/scripts/seed-admin.ts",
     "db:reset": "npx tsx src/scripts/reset-db.ts"
   },

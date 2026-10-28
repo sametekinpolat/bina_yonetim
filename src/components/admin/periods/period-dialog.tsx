@@ -40,6 +40,7 @@ export function PeriodDialog({ open, onOpenChange }: PeriodDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [year, setYear] = useState(String(currentYear));
+  const [periodType, setPeriodType] = useState("Aylık");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,6 +48,7 @@ export function PeriodDialog({ open, onOpenChange }: PeriodDialogProps) {
     const formData = new FormData(e.currentTarget);
     formData.set("periodMonth", month);
     formData.set("periodYear", year);
+    formData.set("periodType", periodType);
 
     startTransition(async () => {
       const result = await createPeriod(formData);
@@ -76,6 +78,17 @@ export function PeriodDialog({ open, onOpenChange }: PeriodDialogProps) {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label>Dönem Türü</Label>
+              <Select value={periodType} onValueChange={(v) => { if (v) setPeriodType(v); }}>
+                <SelectTrigger><SelectValue>{(val: string) => val}</SelectValue></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aylık">Aylık Aidat</SelectItem>
+                  <SelectItem value="Ek Dönem">Ek Dönem / Özel Tahakkuk</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Ek dönem borçları aylık aidat ödemelerinden ayrı tutulur.</p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label>Ay</Label>
               <Select value={month} onValueChange={(v) => { if (v !== null) setMonth(v); }}>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bankStatementImports, monthlyInvoices, flats, billingPeriods } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { randomUUID } from "crypto";
 
@@ -62,7 +62,8 @@ function parseTurkishDate(raw: unknown): string | null {
 // ---------------------------------------------------------------------------
 // Extract flat number from description heuristics
 // Examples:
-//   "FAST:Remezan Öksüz Apt aidat.ödem"   → try to find flat in description
+//   "FAST:... Daire 12 aidat"             → 12
+//   "FAST:Remezan Öksüz Apt aidat.ödem"   → null unless a flat marker exists
 //   "7777/MBL-7529073-Levent Akçay-maa"   → payroll / EFT, no flat
 //   "Daire 12 aidat"                       → 12
 //   "3 No'lu Daire aidat"                  → 3
@@ -77,8 +78,6 @@ function parseFlatNumber(desc: string): number | null {
     /\bno\.?\s*(\d{1,3})\b/i,
     /\bd\.?\s*(\d{1,3})\b/,
     /\b(\d{1,3})\s*nolu\b/i,
-    // "aidat.ödem" style: look for a number anywhere in the description
-    /\b(\d{1,3})\b/,
   ];
 
   for (const p of patterns) {
@@ -105,10 +104,14 @@ async function tryAutoMatch(
     .select({ invoiceId: monthlyInvoices.id })
     .from(monthlyInvoices)
     .innerJoin(flats, eq(flats.id, monthlyInvoices.flatId))
+    .innerJoin(billingPeriods, eq(billingPeriods.id, monthlyInvoices.periodId))
     .where(
       and(
         eq(flats.flatNumber, flatNumber),
         eq(monthlyInvoices.totalDue, amount.toFixed(2)),
+        eq(billingPeriods.periodType, "Aylık"),
+        inArray(monthlyInvoices.status, ["Ödenmedi", "Kısmi"]),
+        ne(billingPeriods.status, "Taslak"),
       ),
     )
     .limit(1);
@@ -197,6 +200,7 @@ export async function POST(req: NextRequest) {
 
     records.push({
       batchId,
+      fileName: file.name.slice(0, 255),
       rawDate: parsedDate,
       rawAmount: absAmount.toFixed(2),
       rawDescription: fullDescription,
