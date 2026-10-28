@@ -101,6 +101,7 @@ export const billingPeriods = pgTable("billing_periods", {
   periodName: varchar("period_name", { length: 100 }).notNull(),
   periodYear: integer("period_year").notNull(),
   periodMonth: integer("period_month").notNull(),
+  periodType: varchar("period_type", { length: 20 }).notNull().default("Aylık"),
   status: periodStatusEnum("status").default("Taslak"),
   rawWaterBill: decimal("raw_water_bill", { precision: 12, scale: 2 }),
   rawGasBill: decimal("raw_gas_bill", { precision: 12, scale: 2 }),
@@ -250,6 +251,8 @@ export const transactions = pgTable("transactions", {
   // For surcharge sub-transactions (Interest, Penalty, etc.)
   surchargeType: surchargeTypeEnum("surcharge_type"),
   description: text("description"),
+  // Identifies transactions created by approving a bank import row.
+  sourceImportId: integer("source_import_id"),
 });
 
 // ---------------------------------------------------------------------------
@@ -259,6 +262,7 @@ export const transactions = pgTable("transactions", {
 export const bankStatementImports = pgTable("bank_statement_imports", {
   id: serial("id").primaryKey(),
   batchId: varchar("batch_id", { length: 100 }).notNull(),
+  fileName: varchar("file_name", { length: 255 }),
   rawDate: date("raw_date").notNull(),
   rawAmount: decimal("raw_amount", { precision: 12, scale: 2 }).notNull(),
   rawDescription: text("raw_description"),
@@ -267,10 +271,14 @@ export const bankStatementImports = pgTable("bank_statement_imports", {
   direction: importDirectionEnum("direction").default("Gelir"),
   // Income side: link to resident invoice
   linkedInvoiceId: integer("linked_invoice_id").references(() => monthlyInvoices.id),
+  linkedSplitInvoiceId: integer("linked_split_invoice_id").references(() => monthlyInvoices.id),
+  linkedInvoiceAmount: decimal("linked_invoice_amount", { precision: 12, scale: 2 }),
   parsedFlatNumber: integer("parsed_flat_number"),
   parsedMonth: varchar("parsed_month", { length: 20 }),
   // Expense side: generic link to vendor
   linkedVendorId: integer("linked_vendor_id").references(() => vendors.id),
+  // Counter-account when this bank row is reconciled as a transfer.
+  linkedTransferAccountId: integer("linked_transfer_account_id").references(() => accounts.id),
   // Legacy Expense side: link to vendor payable
   linkedPayableId: integer("linked_payable_id").references(() => vendorPayables.id),
   // For expense rows: how much of rawAmount goes to the payable vs. is surcharge

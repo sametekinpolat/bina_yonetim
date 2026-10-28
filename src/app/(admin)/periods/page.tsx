@@ -13,7 +13,7 @@ export default async function PeriodsPage() {
     <div className="p-6">
       <h1 className="text-2xl font-semibold">Aidat Dönemleri</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Aylık aidat dönemlerini oluşturun ve yönetin.
+        Aylık aidatları ve aylık ödemelerden ayrı izlenen ek tahakkukları yönetin.
       </p>
       <PeriodsTable periods={periods as any} />
     </div>

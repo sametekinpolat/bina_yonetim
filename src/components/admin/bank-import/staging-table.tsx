@@ -18,6 +18,7 @@ import { CheckCircle2, XCircle, Link2, Trash2, ArrowUpCircle, ArrowDownCircle } 
 import {
   approveStagingRow,
   manualMatch,
+  manualSplitMatch,
   ignoreStagingRow,
   deleteStagingBatch,
   linkVendorToStagingRow,
@@ -33,6 +34,7 @@ import {
 type StagingRow = {
   id: number;
   batchId: string;
+  fileName: string | null;
   rawDate: string;
   rawAmount: string;
   rawDescription: string | null;
@@ -40,9 +42,14 @@ type StagingRow = {
   status: string;
   direction: "Gelir" | "Gider" | null;
   linkedInvoiceId: number | null;
+  linkedSplitInvoiceId: number | null;
+  linkedInvoiceAmount: string | null;
   linkedVendorId: number | null;
+  linkedTransferAccountId: number | null;
   invoiceLabel: string | null;
+  splitInvoiceLabel: string | null;
   vendorLabel: string | null;
+  transferAccountLabel: string | null;
   reconciledBy: string | null;
   baseAmount: string | null;
   surchargeAmount: string | null;
@@ -50,7 +57,7 @@ type StagingRow = {
 };
 
 type AccountOption = { id: number; accountName: string };
-type InvoiceOption = { id: number; label: string };
+type InvoiceOption = { id: number; flatId: number; periodType: string; label: string };
 type VendorOption = { id: number; label: string };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -93,11 +100,15 @@ export function StagingTable({
   vendors: VendorOption[];
 }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id.toString() ?? "");
+  const [selectedBatchId, setSelectedBatchId] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // Income match dialog state
   const [incomeMatchTarget, setIncomeMatchTarget] = useState<StagingRow | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [splitIncome, setSplitIncome] = useState(false);
+  const [splitInvoiceId, setSplitInvoiceId] = useState("");
+  const [firstInvoiceAmount, setFirstInvoiceAmount] = useState("");
 
   // Expense match dialog state
   const [expenseMatchTarget, setExpenseMatchTarget] = useState<StagingRow | null>(null);
@@ -108,12 +119,28 @@ export function StagingTable({
 
   // Direct match dialog state
   const [directMatchTarget, setDirectMatchTarget] = useState<StagingRow | null>(null);
-  const [directDirection, setDirectDirection] = useState<"Gelir" | "Gider">("Gelir");
+  const [directDirection, setDirectDirection] = useState<"Gelir" | "Gider" | "Transfer">("Gelir");
   const [directDescription, setDirectDescription] = useState("");
+  const [transferAccountId, setTransferAccountId] = useState("");
 
-  const batches = [...new Set(rows.map((r) => r.batchId))];
-  const needsAction = rows.filter((r) => r.status === "Bekliyor").length;
-  const matched = rows.filter(
+  const batchMap = new Map<string, { fileName: string | null; latestRowId: number; count: number }>();
+  for (const row of rows) {
+    const batch = batchMap.get(row.batchId);
+    if (batch) {
+      batch.count++;
+      batch.latestRowId = Math.max(batch.latestRowId, row.id);
+      batch.fileName ??= row.fileName;
+    } else {
+      batchMap.set(row.batchId, { fileName: row.fileName, latestRowId: row.id, count: 1 });
+    }
+  }
+  const batches = [...batchMap.entries()].sort((a, b) => b[1].latestRowId - a[1].latestRowId);
+  const activeBatchId = batches.some(([batchId]) => batchId === selectedBatchId)
+    ? selectedBatchId
+    : batches[0]?.[0] ?? "";
+  const visibleRows = rows.filter((row) => row.batchId === activeBatchId);
+  const needsAction = visibleRows.filter((r) => r.status === "Bekliyor").length;
+  const matched = visibleRows.filter(
     (r) => r.status === "Otomatik Eşleşti" || r.status === "Manuel Eşleşti",
   ).length;
 
@@ -135,12 +162,26 @@ export function StagingTable({
   function openIncomeMatch(row: StagingRow) {
     setIncomeMatchTarget(row);
     setSelectedInvoiceId(row.linkedInvoiceId?.toString() ?? "");
+    setSplitIncome(!!row.linkedSplitInvoiceId);
+    setSplitInvoiceId(row.linkedSplitInvoiceId?.toString() ?? "");
+    setFirstInvoiceAmount(row.linkedInvoiceAmount ?? row.rawAmount);
   }
 
   function saveIncomeMatch() {
     if (!incomeMatchTarget || !selectedInvoiceId) return;
     startTransition(async () => {
-      await manualMatch(incomeMatchTarget.id, parseInt(selectedInvoiceId));
+      const result = splitIncome
+        ? await manualSplitMatch(
+            incomeMatchTarget.id,
+            parseInt(selectedInvoiceId),
+            parseInt(splitInvoiceId),
+            parseFloat(firstInvoiceAmount),
+          )
+        : await manualMatch(incomeMatchTarget.id, parseInt(selectedInvoiceId));
+      if (result && "error" in result && result.error) {
+        alert(result.error);
+        return;
+      }
       setIncomeMatchTarget(null);
     });
   }
@@ -171,12 +212,22 @@ export function StagingTable({
     setDirectMatchTarget(row);
     setDirectDirection(row.direction ?? "Gelir");
     setDirectDescription(row.rawDescription ?? "");
+    setTransferAccountId(row.linkedTransferAccountId?.toString() ?? "");
   }
 
   function saveDirectMatch() {
-    if (!directMatchTarget || !directDescription) return;
+    if (!directMatchTarget || !directDescription || (directDirection === "Transfer" && !transferAccountId)) return;
     startTransition(async () => {
-      await directMatch(directMatchTarget.id, directDirection, directDescription);
+      const result = await directMatch(
+        directMatchTarget.id,
+        directDirection,
+        directDescription,
+        directDirection === "Transfer" ? parseInt(transferAccountId, 10) : undefined,
+      );
+      if (result?.error) {
+        alert(result.error);
+        return;
+      }
       setDirectMatchTarget(null);
     });
   }
@@ -186,8 +237,11 @@ export function StagingTable({
   }
 
   function deleteBatch(batchId: string) {
-    if (!confirm("Bu batch'teki tüm satırlar silinsin mi?")) return;
-    startTransition(async () => { await deleteStagingBatch(batchId); });
+    if (!confirm("Bu Excel yüklemesindeki tüm satırlar ve bu satırların oluşturduğu işlemler silinecek. Bağlı fatura ödemeleri geri alınacak. Devam edilsin mi?")) return;
+    startTransition(async () => {
+      const result = await deleteStagingBatch(batchId);
+      if (result && "error" in result && result.error) alert(result.error);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -195,12 +249,24 @@ export function StagingTable({
   // ---------------------------------------------------------------------------
 
   function renderLinkedLabel(row: StagingRow) {
+    if (row.linkedTransferAccountId) {
+      return row.transferAccountLabel ?? <span className="text-muted-foreground">Transfer hesabı</span>;
+    }
     const dir = row.direction ?? "Gelir";
     if (dir === "Gider") {
       if (row.vendorLabel) return row.vendorLabel;
       return <span className="text-muted-foreground">—</span>;
     }
-    if (row.invoiceLabel) return row.invoiceLabel;
+    if (row.invoiceLabel) return (
+      <span>
+        {row.invoiceLabel}
+        {row.splitInvoiceLabel && (
+          <span className="mt-1 block text-xs text-muted-foreground">
+            {fmt(row.linkedInvoiceAmount ?? "0")} + {row.splitInvoiceLabel} ({fmt((Number(row.rawAmount) - Number(row.linkedInvoiceAmount ?? 0)).toFixed(2))})
+          </span>
+        )}
+      </span>
+    );
     return <span className="text-muted-foreground">—</span>;
   }
 
@@ -217,8 +283,11 @@ export function StagingTable({
             variant="outline"
             disabled={isPending}
             onClick={() => {
-              if (confirm("Ekstre satırı geri alınacak. Lütfen bağlı işlemi 'İşlemler' menüsünden silmeyi unutmayın!")) {
-                startTransition(async () => { await revertStagingRow(row.id); });
+              if (confirm("Bu satırın oluşturduğu işlem(ler) silinecek ve bağlı fatura ödemesi geri alınacak. Devam edilsin mi?")) {
+                startTransition(async () => {
+                  const result = await revertStagingRow(row.id);
+                  if (result && "error" in result && result.error) alert(result.error);
+                });
               }
             }}
           >
@@ -271,13 +340,13 @@ export function StagingTable({
             {dir === "Gider" && row.linkedVendorId ? "Ödeme Güncelle" : "Firma Eşle"}
           </Button>
         )}
-        {isPendingRow && (
+        {(isPendingRow || isMatched) && (
           <Button
             size="sm"
             variant="outline"
             onClick={() => openDirectMatch(row)}
           >
-            Direkt İşle
+            {isMatched ? "Eşleşmeyi Değiştir" : "Direkt İşle"}
           </Button>
         )}
         {!isIgnored && (
@@ -303,7 +372,7 @@ export function StagingTable({
       {/* Summary bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-4 text-sm">
-          <span>{rows.length} satır</span>
+          <span>{visibleRows.length} satır</span>
           <span className="text-amber-600 dark:text-amber-400">{needsAction} bekliyor</span>
           <span className="text-emerald-600">{matched} eşlendi</span>
         </div>
@@ -324,17 +393,33 @@ export function StagingTable({
         </div>
       </div>
 
-      {/* Batch delete buttons */}
-      {batches.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {batches.map((b) => (
-            <Button key={b} size="sm" variant="outline" onClick={() => deleteBatch(b)}>
-              <Trash2 className="mr-1.5 h-3 w-3" />
-              Yüklemeyi sil {b.slice(0, 8)}…
-            </Button>
-          ))}
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Label htmlFor="import-batch" className="shrink-0 text-sm">Yükleme:</Label>
+          <Select value={activeBatchId} onValueChange={(value) => { if (value) setSelectedBatchId(value); }}>
+            <SelectTrigger id="import-batch" className="min-w-0 max-w-xl flex-1">
+              <SelectValue placeholder="Yükleme seçin">
+                {(value: string) => {
+                  const batch = batchMap.get(value);
+                  return `${batch?.fileName || value.slice(0, 8)} · ${batch?.count ?? 0} satır`;
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {batches.map(([batchId, batch]) => (
+                <SelectItem key={batchId} value={batchId}>
+                  {batch.fileName || batchId.slice(0, 8)} · {batch.count} satır
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+        {activeBatchId && (
+          <Button size="sm" variant="outline" onClick={() => deleteBatch(activeBatchId)}>
+            <Trash2 className="mr-1.5 h-3 w-3" /> Yüklemeyi sil
+          </Button>
+        )}
+      </div>
 
       <div className="rounded-lg border">
         <Table>
@@ -351,14 +436,14 @@ export function StagingTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                   Satır yok. Yukarıdan banka ekstresi yükleyin.
                 </TableCell>
               </TableRow>
             )}
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const dir = row.direction ?? "Gelir";
               return (
                 <TableRow key={row.id} className={row.status === "Yok Sayıldı" ? "opacity-40" : ""}>
@@ -419,7 +504,15 @@ export function StagingTable({
                 <Label>Fatura seçin</Label>
                 <Select
                   value={selectedInvoiceId}
-                  onValueChange={(v) => { if (v) setSelectedInvoiceId(v); }}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    setSelectedInvoiceId(v);
+                    const nextFirst = invoices.find((invoice) => invoice.id.toString() === v);
+                    const currentSecond = invoices.find((invoice) => invoice.id.toString() === splitInvoiceId);
+                    if (currentSecond && (currentSecond.flatId !== nextFirst?.flatId || currentSecond.periodType === nextFirst?.periodType)) {
+                      setSplitInvoiceId("");
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Fatura seçin…">
@@ -433,11 +526,62 @@ export function StagingTable({
                   </SelectContent>
                 </Select>
               </div>
+              <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={splitIncome}
+                  onChange={(event) => setSplitIncome(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>Bu ödemeyi aylık aidat ve bir ek dönem arasında böl</span>
+              </label>
+              {splitIncome && (() => {
+                const firstInvoice = invoices.find((invoice) => invoice.id.toString() === selectedInvoiceId);
+                const secondOptions = invoices.filter((invoice) =>
+                  invoice.flatId === firstInvoice?.flatId && invoice.periodType !== firstInvoice?.periodType
+                );
+                const remainder = Number(incomeMatchTarget.rawAmount) - Number(firstInvoiceAmount || 0);
+                return (
+                  <div className="space-y-3 rounded-md border border-dashed p-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>İkinci fatura — farklı dönem türü</Label>
+                      <Select value={splitInvoiceId} onValueChange={(value) => { if (value) setSplitInvoiceId(value); }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ek dönem veya aylık fatura seçin">
+                            {(value: string) => invoices.find((invoice) => invoice.id.toString() === value)?.label || value}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="w-[400px]">
+                          {secondOptions.map((invoice) => (
+                            <SelectItem key={invoice.id} value={invoice.id.toString()}>{invoice.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="first-invoice-amount">İlk faturaya ayrılacak tutar (₺)</Label>
+                      <Input
+                        id="first-invoice-amount"
+                        type="number"
+                        min="0.01"
+                        max={Number(incomeMatchTarget.rawAmount) - 0.01}
+                        step="0.01"
+                        value={firstInvoiceAmount}
+                        onChange={(event) => setFirstInvoiceAmount(event.target.value)}
+                      />
+                    </div>
+                    <p className={`text-xs ${remainder > 0 ? "text-muted-foreground" : "text-destructive"}`}>
+                      İkinci faturaya ayrılacak: {fmt(Math.max(0, remainder).toFixed(2))} · Toplam: {fmt(incomeMatchTarget.rawAmount)}
+                    </p>
+                    {secondOptions.length === 0 && <p className="text-xs text-destructive">Bu daire için diğer dönem türünde ödenmemiş fatura yok.</p>}
+                  </div>
+                );
+              })()}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIncomeMatchTarget(null)}>İptal</Button>
-            <Button disabled={!selectedInvoiceId || isPending} onClick={saveIncomeMatch}>
+            <Button disabled={!selectedInvoiceId || (splitIncome && (!splitInvoiceId || Number(firstInvoiceAmount) <= 0 || Number(firstInvoiceAmount) >= Number(incomeMatchTarget?.rawAmount ?? 0))) || isPending} onClick={saveIncomeMatch}>
               {isPending ? "Kaydediliyor…" : "Eşle"}
             </Button>
           </DialogFooter>
@@ -601,7 +745,7 @@ export function StagingTable({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>İşlem Yönü</Label>
-                <Select value={directDirection} onValueChange={(v) => { if (v === "Gelir" || v === "Gider") setDirectDirection(v); }}>
+                <Select value={directDirection} onValueChange={(v) => { if (v === "Gelir" || v === "Gider" || v === "Transfer") setDirectDirection(v); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Yön seçin…">
                       {(val: string) => val}
@@ -610,9 +754,28 @@ export function StagingTable({
                   <SelectContent>
                     <SelectItem value="Gelir">Gelir</SelectItem>
                     <SelectItem value="Gider">Gider</SelectItem>
+                    <SelectItem value="Transfer">Hesaplar Arası Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {directDirection === "Transfer" && (
+                <div className="flex flex-col gap-1.5">
+                  <Label>Karşı Hesap</Label>
+                  <Select value={transferAccountId} onValueChange={(v) => setTransferAccountId(v ?? "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Karşı hesabı seçin…">
+                        {(value: string) => accounts.find((a) => a.id.toString() === value)?.accountName || value}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.filter((a) => a.id.toString() !== accountId).map((a) => (
+                        <SelectItem key={a.id} value={a.id.toString()}>{a.accountName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Karşı hesabı seçin. Transfer yönü ekstreden otomatik alınır.</p>
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <Label>Açıklama</Label>
                 <Input
@@ -625,7 +788,7 @@ export function StagingTable({
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDirectMatchTarget(null)}>İptal</Button>
-            <Button disabled={!directDescription || isPending} onClick={saveDirectMatch}>
+            <Button disabled={!directDescription || (directDirection === "Transfer" && !transferAccountId) || isPending} onClick={saveDirectMatch}>
               {isPending ? "Kaydediliyor…" : "Kaydet"}
             </Button>
           </DialogFooter>

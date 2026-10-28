@@ -16,6 +16,7 @@ export default async function TransactionsPage() {
       transactionDate: transactions.transactionDate,
       description: transactions.description,
       invoiceLabel: billingPeriods.periodName,
+      invoicePeriodType: billingPeriods.periodType,
       invoiceFlatNumber: flats.flatNumber,
     })
     .from(transactions)
@@ -40,6 +41,7 @@ export default async function TransactionsPage() {
     .select({
       id: monthlyInvoices.id,
       periodName: billingPeriods.periodName,
+      periodType: billingPeriods.periodType,
       flatNumber: flats.flatNumber,
       status: monthlyInvoices.status,
     })
@@ -57,13 +59,13 @@ export default async function TransactionsPage() {
     transactionDate: tx.transactionDate,
     description: tx.description,
     invoiceLabel: tx.invoiceLabel
-      ? `${tx.invoiceLabel} — Daire No ${tx.invoiceFlatNumber}`
+      ? `${tx.invoiceLabel}${tx.invoicePeriodType === "Ek Dönem" ? " (Ek Dönem)" : ""} — Daire No ${tx.invoiceFlatNumber}`
       : null,
   }));
 
   const invoices = invoiceOptions.map((inv) => ({
     id: inv.id,
-    label: `${inv.periodName} — Daire No ${inv.flatNumber} (${inv.status})`,
+    label: `${inv.periodName}${inv.periodType === "Ek Dönem" ? " (Ek Dönem)" : ""} — Daire No ${inv.flatNumber} (${inv.status})`,
   }));
 
   return (

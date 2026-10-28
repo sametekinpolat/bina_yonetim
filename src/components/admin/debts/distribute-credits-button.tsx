@@ -3,18 +3,18 @@
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
-import { distributeCredits } from "@/actions/credits";
+import { refreshInvoiceBalances } from "@/actions/credits";
 
 export function DistributeCreditsButton() {
   const [isPending, startTransition] = useTransition();
 
   const handleDistribute = () => {
     startTransition(async () => {
-      const result = await distributeCredits();
+      const result = await refreshInvoiceBalances();
       if (result.error) {
         alert(result.error);
       } else {
-        alert("Krediler ileri taşındı ve dağıtıldı.");
+        alert(`${result.invoiceCount} fatura bakiyesi, daire ve dönem türüne göre ödeme kayıtlarından yenilendi.`);
       }
     });
   };
@@ -25,14 +25,14 @@ export function DistributeCreditsButton() {
       size="sm"
       onClick={handleDistribute}
       disabled={isPending}
-      title="Tüm daireler için fazla ödemeleri (kredileri) ödenmemiş sonraki aylara aktarır."
+      title="Aylık ödemeleri dairenin yayınlanmış aylarına sırayla aktarır. Ek dönem ödemeleri ayrı kalır; işlem kayıtları korunur."
     >
       {isPending ? (
         <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
       ) : (
         <ArrowRightLeft className="mr-1.5 h-4 w-4" />
       )}
-      Kredileri Dağıt
+      Ödemeleri Yenile
     </Button>
   );
 }

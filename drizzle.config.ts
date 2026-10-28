@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 
-config({ path: ".env", override: true });
+config({ path: ".env" });
 
 export default {
   schema: "./src/lib/db/schema.ts",

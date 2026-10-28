@@ -19,6 +19,7 @@ import { deletePeriod } from "@/actions/billing";
 type Period = {
   id: number;
   periodName: string;
+  periodType: string;
   periodYear: number;
   periodMonth: number;
   status: "Taslak" | "Yayınlandı" | "Kapandı";
@@ -85,6 +86,7 @@ export function PeriodsTable({ periods }: { periods: Period[] }) {
                     className="font-medium hover:underline"
                   >
                     {p.periodName}
+                    {p.periodType === "Ek Dönem" && <Badge className="ml-2" variant="outline">Ek Dönem</Badge>}
                   </Link>
                 </TableCell>
                 <TableCell>

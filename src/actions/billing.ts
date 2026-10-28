@@ -17,6 +17,7 @@ const periodSchema = z.object({
   periodName: z.string().min(1).max(100),
   periodYear: z.coerce.number().int().min(2000).max(2100),
   periodMonth: z.coerce.number().int().min(1).max(12),
+  periodType: z.enum(["Aylık", "Ek Dönem"]),
 });
 
 const billsSchema = z.object({
@@ -31,6 +32,7 @@ export async function createPeriod(formData: FormData) {
     periodName: formData.get("periodName"),
     periodYear: formData.get("periodYear"),
     periodMonth: formData.get("periodMonth"),
+    periodType: formData.get("periodType") || "Aylık",
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
